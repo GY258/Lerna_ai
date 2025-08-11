@@ -2,12 +2,12 @@
 // Assumes FastAPI running at http://localhost:8000
 
 import React, { useEffect, useState } from "react";
-import { BrowserRouter as Router, Route, Routes, Navigate, useNavigate, useParams } from "react-router-dom";
+import { BrowserRouter as Router, Route, Routes, Navigate, useNavigate, useParams, Link } from "react-router-dom";
 import './App.css';
 
 const mockUser = {
   name: "John",
-  role: "employee", // change to "employee" to test employee view
+  role: "employee",
   id: "d33b2c44-baaa-4e43-b532-e82ecbe405d6"
 };
 
@@ -17,26 +17,56 @@ function App() {
   useEffect(() => {
     setTimeout(() => {
       setUser(mockUser);
-    }, 500);
+    }, 300);
   }, []);
 
-  if (!user) return <div className="p-4">Loading...</div>;
+  if (!user) return (
+    <div className="min-h-screen grid place-items-center bg-gradient-to-b from-slate-50 to-slate-100">
+      <div className="card">
+        <div className="flex items-center gap-3">
+          <span className="h-2 w-2 animate-pulse rounded-full bg-sky-500" />
+          <span className="text-slate-600">Loading your workspace…</span>
+        </div>
+      </div>
+    </div>
+  );
 
   return (
     <Router>
-      <div className="min-h-screen bg-gray-100 p-6">
-        <h1 className="text-2xl font-bold mb-6">Welcome, {user.name}</h1>
-        <Routes>
-          <Route path="/" element={<Navigate to={`/${user.role}`} />} />
-          <Route path="/manager" element={<ManagerView />} />
-          <Route path="/employee" element={<EmployeeQuizList user={user} />} />
-          <Route path="/quiz/:id" element={<QuizTaking user={user} />} />
-        </Routes>
+      <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100">
+        <Header user={user} />
+        <main className="mx-auto max-w-6xl px-4 py-8">
+          <Routes>
+            <Route path="/" element={<Navigate to={`/${user.role}`} />} />
+            <Route path="/manager" element={<ManagerView />} />
+            <Route path="/employee" element={<EmployeeQuizList user={user} />} />
+            <Route path="/quiz/:id" element={<QuizTaking user={user} />} />
+          </Routes>
+        </main>
       </div>
     </Router>
   );
 }
 
+function Header({ user }) {
+  return (
+    <header className="border-b border-slate-200 bg-white/70 backdrop-blur">
+      <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4">
+        <div className="flex items-center gap-3">
+          <div className="grid h-9 w-9 place-items-center rounded-xl bg-sky-600 text-white font-bold">L</div>
+          <div>
+            <h1 className="text-lg font-semibold leading-tight">Lerna Training</h1>
+            <p className="text-xs text-slate-500">Welcome, {user.name}</p>
+          </div>
+        </div>
+        <nav className="flex items-center gap-2">
+          <Link className="btn-ghost" to="/employee">Employee</Link>
+          <Link className="btn-ghost" to="/manager">Manager</Link>
+        </nav>
+      </div>
+    </header>
+  );
+}
 
 const EmployeeQuizList = ({ user }) => {
   const [quizzes, setQuizzes] = useState([]);
@@ -52,24 +82,39 @@ const EmployeeQuizList = ({ user }) => {
   }, [user.id]);
 
   return (
-    <Section title="Your Assigned Quizzes">
-      {quizzes.length === 0 ? (
-        <p>No quizzes assigned.</p>
-      ) : (
-        <ul className="space-y-3">
-          {quizzes.map((q) => (
-            <li
+    <div className="space-y-6">
+      <div className="flex items-end justify-between">
+        <div>
+          <h2 className="text-2xl font-bold tracking-tight">Your Assigned Quizzes</h2>
+          <p className="text-sm text-slate-500">Pick up where you left off.</p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {quizzes.length === 0 ? (
+          <div className="col-span-full">
+            <div className="card flex items-center gap-3">
+              <span className="pill">Empty</span>
+              <p className="text-slate-600">No quizzes assigned yet.</p>
+            </div>
+          </div>
+        ) : (
+          quizzes.map((q) => (
+            <button
               key={q.id}
-              className="p-4 bg-gray-50 border rounded hover:bg-blue-50 cursor-pointer"
+              className="card text-left transition hover:-translate-y-0.5 hover:shadow-xl"
               onClick={() => navigate(`/quiz/${q.id}`)}
             >
-              <strong>{q.sop_topic}</strong>
-              <p className="text-sm text-gray-500">{q.question.slice(0, 60)}...</p>
-            </li>
-          ))}
-        </ul>
-      )}
-    </Section>
+              <div className="flex items-start justify-between gap-3">
+                <strong className="text-slate-900">{q.sop_topic}</strong>
+                <span className="pill">Quiz</span>
+              </div>
+              <p className="mt-2 line-clamp-2 text-sm text-slate-600">{q.question}</p>
+            </button>
+          ))
+        )}
+      </div>
+    </div>
   );
 };
 
@@ -86,7 +131,6 @@ const QuizTaking = ({ user }) => {
     async function loadQuiz() {
       const res = await fetch(`http://localhost:8000/quiz/${id}`);
       const data = await res.json();
-      console.log("Loaded quiz:", data);
       setQuiz(data);
     }
     loadQuiz();
@@ -103,72 +147,74 @@ const QuizTaking = ({ user }) => {
         answer
       })
     });
-    
+
     const data = await res.json();
     setSubmitted(true);
     setCorrect(data.correct);
     setScore(data.score);
   };
   const navigate = useNavigate();
-  if (!quiz) return <p>Loading quiz...</p>;
+  if (!quiz) return <p className="text-slate-600">Loading quiz…</p>;
 
   return (
-    <Section title={`Quiz: ${quiz.sop_topic}`}>
-      <p className="mb-4 font-medium">{quiz.question}</p>
-      <p className="text-sm text-gray-500 italic mb-1">
-        Type: {quiz.type === "choice" ? "Multiple Choice" : "Written Response"}
-      </p>
-      {quiz.type === "choice" ? (
-        quiz.options?.map((opt, idx) => (
-          <button
-            key={idx}
-            onClick={() => setSelectedAnswer(opt)}
-            className={`block w-full text-left p-2 border rounded mb-1 ${selectedAnswer === opt ? "bg-blue-100" : "bg-white"}`}
-          >
-            {opt}
-          </button>
-        ))
-      ) : (
-        <textarea
-          className="w-full p-2 border rounded mb-3"
-          rows={3}
-          placeholder="Type your answer here..."
-          value={textAnswer}
-          onChange={(e) => setTextAnswer(e.target.value)}
-        />
-      )}
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h2 className="text-2xl font-bold tracking-tight">{quiz.sop_topic}</h2>
+        <button className="btn-ghost" onClick={() => navigate("/employee")}>
+          ⬅ Back to list
+        </button>
+      </div>
 
-      <button
-        onClick={handleSubmit}
-        className="mt-3 bg-green-600 text-white px-4 py-2 rounded"
-      >
-        Submit
-      </button>
-      <button
-            className="mt-3 bg-gray-600 text-white px-4 py-2 rounded"
-            onClick={() => navigate("/employee")}
-      >
-            ⬅️ Return to Quiz List
-      </button>
-      {submitted && (
-        <div className="mt-3">
-          {correct ? (
-            <p className="text-green-600 font-bold">✅ Correct!</p>
-          ) : (
-            <p className="text-red-500 font-bold">❌ Incorrect. Try again or review SOP.</p>
-          )}
-          <p className="text-sm mt-1">Your score: {score}</p>
+      <div className="card">
+        <p className="mb-3 font-medium text-slate-900">{quiz.question}</p>
+        <p className="mb-4 text-sm text-slate-500 italic">
+          Type: {quiz.type === "choice" ? "Multiple Choice" : "Written Response"}
+        </p>
+        {quiz.type === "choice" ? (
+          <div className="space-y-2">
+            {quiz.options?.map((opt, idx) => (
+              <button
+                key={idx}
+                onClick={() => setSelectedAnswer(opt)}
+                className={`w-full rounded-xl border px-3 py-2 text-left transition ${selectedAnswer === opt ? "border-sky-500 bg-sky-50" : "border-slate-200 bg-white hover:bg-slate-50"}`}
+              >
+                {opt}
+              </button>
+            ))}
+          </div>
+        ) : (
+          <textarea
+            className="textarea"
+            rows={4}
+            placeholder="Type your answer here…"
+            value={textAnswer}
+            onChange={(e) => setTextAnswer(e.target.value)}
+          />
+        )}
 
-          
+        <div className="mt-4 flex gap-2">
+          <button onClick={handleSubmit} className="btn-success">Submit</button>
+          <button className="btn-secondary" onClick={() => navigate("/employee")}>Cancel</button>
         </div>
-      )}
-    </Section>
+
+        {submitted && (
+          <div className="mt-4 rounded-xl border p-3">
+            {correct ? (
+              <p className="font-semibold text-emerald-600">✅ Correct!</p>
+            ) : (
+              <p className="font-semibold text-rose-600">❌ Incorrect. Try again or review SOP.</p>
+            )}
+            <p className="mt-1 text-sm text-slate-600">Your score: {score}</p>
+          </div>
+        )}
+      </div>
+    </div>
   );
 };
 
 const Section = ({ title, children }) => (
-  <div className="bg-white rounded-2xl shadow p-6 mb-4">
-    <h2 className="text-xl font-semibold mb-2">{title}</h2>
+  <div className="card mb-6">
+    <h2 className="mb-2 text-xl font-semibold">{title}</h2>
     {children}
   </div>
 );
@@ -194,70 +240,74 @@ const ManagerView = () => {
     setUserReport(data);
   };
 
-
   return (
-    <div>
-      <Section title="Assign SOPs & Quizzes">
+    <div className="space-y-6">
+      <div className="card">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-xl font-semibold">Assign SOPs & Quizzes</h2>
+            <p className="text-sm text-slate-500">Paste SOP text to generate smart quizzes.</p>
+          </div>
+        </div>
         <AssignTraining />
-      </Section>
+      </div>
+
       <Section title="Team Quiz Submissions">
         <SubmissionTable submissions={submissions} />
       </Section>
+
       <Section title="Individual Learning Status">
-        <div className="flex gap-2 mb-2">
+        <div className="mb-3 flex gap-2">
           <input
             value={userId}
             onChange={(e) => setUserId(e.target.value)}
             placeholder="Enter user ID"
-            className="border px-2 py-1 rounded"
+            className="input"
           />
-          <button onClick={fetchUserReport} className="bg-blue-600 text-white px-3 py-1 rounded">Check</button>
+          <button onClick={fetchUserReport} className="btn-primary">Check</button>
         </div>
         {userReport && (
-          <div className="p-3 border rounded bg-gray-50">
-            <h3 className="font-bold mb-1">{userReport.name}</h3>
-            <p className="text-sm whitespace-pre-line">{userReport.summary}</p>
+          <div className="rounded-xl border bg-slate-50 p-4">
+            <h3 className="mb-1 font-bold">{userReport.name}</h3>
+            <p className="whitespace-pre-line text-sm text-slate-700">{userReport.summary}</p>
           </div>
         )}
       </Section>
-    
     </div>
   );
-
 };
 
-
 const SubmissionTable = ({ submissions }) => {
-  if (!submissions || submissions.length === 0) return <p>No submissions found.</p>;
+  if (!submissions || submissions.length === 0) return <p className="text-slate-600">No submissions found.</p>;
 
   return (
-    <div className="overflow-x-auto">
-      <table className="min-w-full bg-white border">
+    <div className="overflow-x-auto rounded-xl border">
+      <table className="min-w-full bg-white text-left text-sm">
         <thead>
-          <tr className="bg-gray-100">
-            <th className="py-2 px-4 border-b">User</th>
-            <th className="py-2 px-4 border-b">Topic</th>
-            <th className="py-2 px-4 border-b">Question</th>
-            <th className="py-2 px-4 border-b">Answer</th>
-            <th className="py-2 px-4 border-b">Correct</th>
-            <th className="py-2 px-4 border-b">Answered At</th>
+          <tr className="bg-slate-50 text-slate-600">
+            <th className="py-2 px-4">User</th>
+            <th className="py-2 px-4">Topic</th>
+            <th className="py-2 px-4">Question</th>
+            <th className="py-2 px-4">Answer</th>
+            <th className="py-2 px-4">Correct</th>
+            <th className="py-2 px-4">Answered At</th>
           </tr>
         </thead>
         <tbody>
           {submissions.map((s, idx) => (
-            <tr key={idx} className="border-t hover:bg-gray-50">
+            <tr key={idx} className="border-t hover:bg-slate-50">
               <td className="py-2 px-4">{s.users.name}</td>
               <td className="py-2 px-4">{s.quizzes.sop_topic}</td>
               <td className="py-2 px-4">{s.quizzes.question}</td>
               <td className="py-2 px-4">{s.answer}</td>
               <td className="py-2 px-4">
                 {s.is_correct ? (
-                  <span className="text-green-600 font-bold">✔</span>
+                  <span className="text-emerald-600 font-bold">✔</span>
                 ) : (
-                  <span className="text-red-500 font-bold">✘</span>
+                  <span className="text-rose-500 font-bold">✘</span>
                 )}
               </td>
-              <td className="py-2 px-4 text-sm text-gray-500">{new Date(s.answered_at).toLocaleString()}</td>
+              <td className="py-2 px-4 text-xs text-slate-500">{new Date(s.answered_at).toLocaleString()}</td>
             </tr>
           ))}
         </tbody>
@@ -265,22 +315,6 @@ const SubmissionTable = ({ submissions }) => {
     </div>
   );
 };
-
-
-const EmployeeView = () => (
-  <div>
-    <Section title="Today’s Tasks">
-      <p>View assigned SOPs and quizzes</p>
-      <AssignTraining />
-    </Section>
-    <Section title="Take Quiz">
-      <QuizTaking />
-    </Section>
-    <Section title="Training Progress">
-      <p>Track your performance and history.</p>
-    </Section>
-  </div>
-);
 
 const AssignTraining = () => {
   const [sopText, setSopText] = useState("");
@@ -331,62 +365,65 @@ const AssignTraining = () => {
   };
 
   return (
-    <div>
+    <div className="space-y-4">
       <textarea
-        className="w-full p-2 border rounded mb-2"
-        rows={4}
-        placeholder="Paste SOP here..."
+        className="textarea"
+        rows={5}
+        placeholder="Paste SOP here…"
         value={sopText}
         onChange={(e) => setSopText(e.target.value)}
       />
-      <div className="flex gap-2">
+      <div className="flex flex-wrap gap-2">
         <button
           onClick={generateQuiz}
-          className="bg-blue-500 text-white px-4 py-2 rounded"
+          className="btn-primary"
           disabled={loading || !sopText}
         >
-          {loading ? "Generating..." : "Generate Quiz"}
+          {loading ? "Generating…" : "Generate Quiz"}
         </button>
         <button
           onClick={() => setPreviewMode(!previewMode)}
-          className="bg-yellow-500 text-white px-4 py-2 rounded"
+          className="btn-warning"
         >
           {previewMode ? "Edit Mode" : "Preview Mode"}
         </button>
         <button
           onClick={saveQuiz}
-          className="bg-green-600 text-white px-4 py-2 rounded"
+          className="btn-success"
           disabled={quiz.length === 0}
         >
           Save Changes
         </button>
       </div>
       {quiz.length > 0 && (
-        <div className="mt-6 space-y-6">
-          <h3 className="text-xl font-semibold mb-2">{previewMode ? "Preview Quiz" : "Review & Edit Quiz"}</h3>
+        <div className="space-y-6">
+          <h3 className="text-xl font-semibold">{previewMode ? "Preview Quiz" : "Review & Edit Quiz"}</h3>
           {quiz.map((q, idx) => (
-            <div key={idx} className="bg-white p-4 shadow rounded-xl">
-              <h4 className="text-lg font-medium mb-2">Question {idx + 1}</h4>
-              <p className="text-gray-700 font-semibold mb-1">{previewMode ? q.question : "Question:"}</p>
+            <div key={idx} className="rounded-2xl border bg-white p-4 shadow-sm">
+              <div className="mb-2 flex items-center justify-between">
+                <h4 className="text-lg font-medium">Question {idx + 1}</h4>
+                <span className="pill">{q.type}</span>
+              </div>
+              <p className="mb-1 text-slate-700 font-semibold">{previewMode ? q.question : "Question:"}</p>
               {!previewMode ? (
                 <input
-                  className="w-full p-2 mb-2 border rounded"
+                  className="input mb-2"
                   value={q.question}
                   onChange={(e) => handleChange(idx, "question", e.target.value)}
                 />
               ) : (
-                <p className="mb-2">{q.question}</p>
+                <p className="mb-2 text-slate-800">{q.question}</p>
               )}
               {q.options && Array.isArray(q.options) && q.options.length > 0 && (
-                <>
-                  <p className="text-sm font-medium text-gray-600 mb-1">Options:</p>
+                <div className="mb-2">
+                  <p className="mb-1 text-sm font-medium text-slate-600">Options:</p>
                   {q.options.map((opt, i) => (
                     previewMode ? (
-                      <p key={i} className="ml-2">- {opt}</p>
+                      <p key={i} className="ml-2 text-slate-700">- {opt}</p>
                     ) : (
                       <input
                         key={i}
-                        className="w-full p-1 mb-1 border rounded"
+                        className="input mb-1"
                         value={opt}
                         onChange={(e) => {
                           const newOptions = [...q.options];
@@ -396,20 +433,19 @@ const AssignTraining = () => {
                       />
                     )
                   ))}
-                </>
+                </div>
               )}
-              <label className="block text-sm font-medium text-gray-600 mt-2">Answer:</label>
+              <label className="mb-1 block text-sm font-medium text-slate-600">Answer:</label>
               {previewMode ? (
-                <p>{q.answer}</p>
+                <p className="text-slate-800">{q.answer}</p>
               ) : (
                 <input
-                  className="w-full p-2 mb-2 border rounded"
+                  className="input mb-2"
                   value={q.answer}
                   placeholder="Correct answer"
                   onChange={(e) => handleChange(idx, "answer", e.target.value)}
                 />
               )}
-              <p className="text-xs text-gray-500">Type: {q.type}</p>
             </div>
           ))}
         </div>
@@ -417,6 +453,5 @@ const AssignTraining = () => {
     </div>
   );
 };
-
 
 export default App;
