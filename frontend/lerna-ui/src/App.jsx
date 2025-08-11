@@ -12,35 +12,36 @@ const mockUser = {
 };
 
 function App() {
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState(() => {
+    try {
+      const stored = localStorage.getItem('user');
+      return stored ? JSON.parse(stored) : null;
+    } catch {
+      return null;
+    }
+  });
 
-  useEffect(() => {
-    setTimeout(() => {
-      setUser(mockUser);
-    }, 300);
-  }, []);
+  const handleLogin = (loggedInUser) => {
+    localStorage.setItem('user', JSON.stringify(loggedInUser));
+    setUser(loggedInUser);
+  };
 
-  if (!user) return (
-    <div className="min-h-screen grid place-items-center bg-gradient-to-b from-slate-50 to-slate-100">
-      <div className="card">
-        <div className="flex items-center gap-3">
-          <span className="h-2 w-2 animate-pulse rounded-full bg-sky-500" />
-          <span className="text-slate-600">Loading your workspace…</span>
-        </div>
-      </div>
-    </div>
-  );
+  const handleLogout = () => {
+    localStorage.removeItem('user');
+    setUser(null);
+  };
 
   return (
     <Router>
       <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100">
-        <Header user={user} />
+        {user && <Header user={user} onLogout={handleLogout} />}
         <main className="mx-auto max-w-6xl px-4 py-8">
           <Routes>
-            <Route path="/" element={<Navigate to={`/${user.role}`} />} />
-            <Route path="/manager" element={<ManagerView />} />
-            <Route path="/employee" element={<EmployeeQuizList user={user} />} />
-            <Route path="/quiz/:id" element={<QuizTaking user={user} />} />
+            <Route path="/login" element={<Login onLogin={handleLogin} />} />
+            <Route path="/" element={user ? <Navigate to={`/${user.role}`} /> : <Navigate to="/login" />} />
+            <Route path="/manager" element={user ? <ManagerView /> : <Navigate to="/login" />} />
+            <Route path="/employee" element={user ? <EmployeeQuizList user={user} /> : <Navigate to="/login" />} />
+            <Route path="/quiz/:id" element={user ? <QuizTaking user={user} /> : <Navigate to="/login" />} />
           </Routes>
         </main>
       </div>
@@ -48,7 +49,7 @@ function App() {
   );
 }
 
-function Header({ user }) {
+function Header({ user, onLogout }) {
   return (
     <header className="border-b border-slate-200 bg-white/70 backdrop-blur">
       <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4">
@@ -62,6 +63,7 @@ function Header({ user }) {
         <nav className="flex items-center gap-2">
           <Link className="btn-ghost" to="/employee">Employee</Link>
           <Link className="btn-ghost" to="/manager">Manager</Link>
+          <button className="btn-ghost" onClick={onLogout}>Logout</button>
         </nav>
       </div>
     </header>
@@ -450,6 +452,66 @@ const AssignTraining = () => {
           ))}
         </div>
       )}
+    </div>
+  );
+};
+
+const Login = ({ onLogin }) => {
+  const [name, setName] = useState("");
+  const [role, setRole] = useState("employee");
+  const [userId, setUserId] = useState("");
+  const navigate = useNavigate();
+
+  const submit = (e) => {
+    e.preventDefault();
+    if (!name || !userId) return;
+    const user = { name, role, id: userId };
+    onLogin(user);
+    navigate(`/${role}`);
+  };
+
+  const fillDemoEmployee = () => {
+    setName("John");
+    setRole("employee");
+    setUserId("d33b2c44-baaa-4e43-b532-e82ecbe405d6");
+  };
+
+  const fillDemoManager = () => {
+    setName("Manager");
+    setRole("manager");
+    setUserId("manager-1");
+  };
+
+  return (
+    <div className="min-h-[60vh] grid place-items-center">
+      <div className="card w-full max-w-md">
+        <h2 className="mb-4 text-xl font-semibold">Sign in</h2>
+        <form className="space-y-3" onSubmit={submit}>
+          <div>
+            <label className="mb-1 block text-sm text-slate-600">Name</label>
+            <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="Your name" />
+          </div>
+          <div>
+            <label className="mb-1 block text-sm text-slate-600">Role</label>
+            <select className="input" value={role} onChange={(e) => setRole(e.target.value)}>
+              <option value="employee">Employee</option>
+              <option value="manager">Manager</option>
+            </select>
+          </div>
+          <div>
+            <label className="mb-1 block text-sm text-slate-600">User ID</label>
+            <input className="input" value={userId} onChange={(e) => setUserId(e.target.value)} placeholder="Paste your user ID" />
+            <p className="mt-1 text-xs text-slate-500">Use your assigned ID. For a quick demo, use the buttons below.</p>
+          </div>
+          <div className="flex gap-2">
+            <button type="button" onClick={fillDemoEmployee} className="btn-secondary">Demo Employee</button>
+            <button type="button" onClick={fillDemoManager} className="btn-warning">Demo Manager</button>
+          </div>
+          <div className="pt-2">
+            <button type="submit" className="btn-primary w-full">Continue</button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 };
