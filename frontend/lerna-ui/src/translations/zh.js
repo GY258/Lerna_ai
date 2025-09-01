@@ -20,7 +20,7 @@ export const zh = {
     demoEmployee: "演示员工",
     demoManager: "演示经理",
     demoHeadChef: "演示主厨长",
-    demoHeadManager: "演示总监",
+    demoHeadManager: "演示店长",
     continue: "继续"
   },
 

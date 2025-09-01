@@ -42,3 +42,30 @@ LLM_TEMPERATURE = 0.7
 HR_EVALUATION_ENABLED = True
 HR_FALLBACK_MODE = False  # Set to True to use fallback responses instead of LLM calls
 
+# Skill dimensions configuration for different roles
+SKILL_DIMENSIONS = {
+    "roles": {
+        "store_manager": {
+            "skill_dimensions": [
+                "运营与标准执行",
+                "财务与成本管理",
+                "顾客体验与客诉闭环",
+                "团队管理与人事",
+                "应急与跨部门协同",
+                "排班与人效管理",
+                "供应链保障"
+            ]
+        },
+        "head_chef": {
+            "skill_dimensions": [
+                "菜品与标准化",
+                "食安与安全管理",
+                "成本与毛利控制",
+                "出菜与产能",
+                "团队与培训",
+                "供应链协同"
+            ]
+        }
+    }
+}
+

@@ -20,7 +20,7 @@ export const en = {
     demoEmployee: "Demo Employee",
     demoManager: "Demo Manager",
     demoHeadChef: "Demo Head Chef",
-    demoHeadManager: "Demo Head Manager",
+    demoHeadManager: "Demo Store Manager",
     continue: "Continue"
   },
 

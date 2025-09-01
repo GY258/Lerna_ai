@@ -1,7 +1,46 @@
 from fastapi import APIRouter
 from backend.db import get_random_quizzes,get_quiz_info,save_quiz_attempt
+from backend.config import SKILL_DIMENSIONS
 
 router = APIRouter(prefix="/employee", tags=["employee"])
+
+@router.get("/skill-dimensions/{role}")
+async def get_skill_dimensions(role: str):
+    """
+    Get skill dimensions for a specific role
+    """
+    if role in SKILL_DIMENSIONS["roles"]:
+        return {
+            "role": role,
+            "skill_dimensions": SKILL_DIMENSIONS["roles"][role]["skill_dimensions"]
+        }
+    else:
+        return {"error": f"Role '{role}' not found"}
+
+@router.get("/roles")
+async def get_available_roles():
+    """
+    Get all available roles
+    """
+    return {"roles": list(SKILL_DIMENSIONS["roles"].keys())}
+
+@router.post("/skill-dimensions")
+async def get_user_skill_dimensions(payload: dict):
+    """
+    Get skill dimensions for a user based on their role
+    Expected payload: {"role": "store_manager" or "head_chef"}
+    """
+    role = payload.get("role")
+    if not role:
+        return {"error": "Role is required"}
+    
+    if role in SKILL_DIMENSIONS["roles"]:
+        return {
+            "role": role,
+            "skill_dimensions": SKILL_DIMENSIONS["roles"][role]["skill_dimensions"]
+        }
+    else:
+        return {"error": f"Role '{role}' not found"}
 
 @router.get("/quizzes/{user_id}")
 async def get_quizzes_for_user(user_id: str):

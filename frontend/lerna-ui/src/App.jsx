@@ -69,7 +69,11 @@ function Header({ user, onLogout }) {
         </div>
         <nav className="flex items-center gap-2">
           <LanguageSwitcher />
-          <Link className="btn-ghost" to="/employee">{t('header.employee')}</Link>
+          <Link className="btn-ghost" to="/employee">
+            {user.role === "store_manager" ? "店长" : 
+             user.role === "head_chef" ? "主厨" : 
+             t('header.employee')}
+          </Link>
           <Link className="btn-ghost" to="/manager">{t('header.manager')}</Link>
           <button className="btn-ghost" onClick={onLogout}>{t('header.logout')}</button>
         </nav>
@@ -98,8 +102,16 @@ const EmployeeQuizList = ({ user }) => {
       {/* Learning Tabs */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight">{t('employee.title')}</h2>
-          <p className="text-sm text-slate-500">{t('employee.subtitle')}</p>
+          <h2 className="text-2xl font-bold tracking-tight">
+            {user.role === "store_manager" ? "店长培训中心" : 
+             user.role === "head_chef" ? "主厨培训中心" : 
+             t('employee.title')}
+          </h2>
+          <p className="text-sm text-slate-500">
+            {user.role === "store_manager" ? "提升您的店长技能和领导能力" : 
+             user.role === "head_chef" ? "提升您的主厨技能和管理能力" : 
+             t('employee.subtitle')}
+          </p>
         </div>
       </div>
 
@@ -449,9 +461,75 @@ const AIRolePlayTraining = ({ user }) => {
   const [selectedScenario, setSelectedScenario] = useState("");
   const [feedback, setFeedback] = useState("");
   const [showFeedback, setShowFeedback] = useState(false);
+  const [scenarios, setScenarios] = useState([]);
+  const [scenariosLoading, setScenariosLoading] = useState(true);
   const { t } = useTranslation();
 
-  const scenarios = [
+  // Fetch skill dimensions and convert to training scenarios
+  useEffect(() => {
+    const fetchSkillDimensions = async () => {
+      try {
+        setScenariosLoading(true);
+        const response = await fetch('http://localhost:8000/employee/skill-dimensions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ role: user.role })
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          const skillDimensions = data.skill_dimensions || [];
+          
+          // Convert skill dimensions to training scenarios
+          const trainingScenarios = skillDimensions.map((skill, index) => ({
+            id: `skill-${index}`,
+            name: skill,
+            icon: getSkillIcon(skill),
+            description: `Practice and improve your skills in ${skill} through interactive role-play scenarios.`
+          }));
+          
+          setScenarios(trainingScenarios);
+        } else {
+          console.error('Failed to fetch skill dimensions');
+          // Fallback to default scenarios if API fails
+          setScenarios(getDefaultScenarios());
+        }
+      } catch (error) {
+        console.error('Error fetching skill dimensions:', error);
+        // Fallback to default scenarios if API fails
+        setScenarios(getDefaultScenarios());
+      } finally {
+        setScenariosLoading(false);
+      }
+    };
+
+    if (user && user.role) {
+      fetchSkillDimensions();
+    }
+  }, [user]);
+
+  // Helper function to get appropriate icon for each skill
+  const getSkillIcon = (skill) => {
+    const iconMap = {
+      '运营与标准执行': '📋',
+      '财务与成本管理': '💰',
+      '顾客体验与客诉闭环': '😊',
+      '团队管理与人事': '👥',
+      '应急与跨部门协同': '🚨',
+      '排班与人效管理': '⏰',
+      '供应链保障': '📦',
+      '菜品与标准化': '🍽️',
+      '食安与安全管理': '🛡️',
+      '成本与毛利控制': '📊',
+      '出菜与产能': '⚡',
+      '团队与培训': '🎓',
+      '供应链协同': '🤝'
+    };
+    return iconMap[skill] || '🎯';
+  };
+
+  // Fallback default scenarios if API fails
+  const getDefaultScenarios = () => [
     { 
       id: "customer-complaint", 
       name: t('aiRoleplay.customerComplaint'), 
@@ -508,6 +586,7 @@ const AIRolePlayTraining = ({ user }) => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           scenario_id: selectedScenario,
+          scenario_name: scenarios.find(s => s.id === selectedScenario)?.name || 'Unknown Skill',
           user_response: conversation.map(msg => `${msg.role}: ${msg.content}`).join('\n'),
           user_role: user.role,
           scenario_history: []
@@ -546,6 +625,7 @@ const AIRolePlayTraining = ({ user }) => {
         body: JSON.stringify({
           message: userInput,
           user_role: user.role,
+          skill_dimension: scenarios.find(s => s.id === selectedScenario)?.name || 'General Training',
           conversation_history: conversation,
           test_history: []
         })
@@ -582,24 +662,39 @@ const AIRolePlayTraining = ({ user }) => {
       {/* Scenario Selection */}
       {!selectedScenario && (
         <div className="card">
-          <h4 className="mb-4 font-medium text-slate-900">{t('aiRoleplay.chooseScenario')}</h4>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {scenarios.map(scenario => (
-              <button
-                key={scenario.id}
-                onClick={() => setSelectedScenario(scenario.id)}
-                className="p-4 rounded-lg border border-slate-200 hover:border-slate-300 transition-colors text-left"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="text-2xl">{scenario.icon}</div>
-                  <div>
-                    <div className="font-medium text-slate-900">{scenario.name}</div>
-                    <div className="text-sm text-slate-600">{scenario.description}</div>
+          <h4 className="mb-4 font-medium text-slate-900">
+            {scenariosLoading ? 'Loading your skill dimensions...' : 'Choose a training scenario based on your role'}
+          </h4>
+          
+          {scenariosLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-2 border-sky-500 border-t-transparent"></div>
+              <span className="ml-2 text-slate-600">Loading skill dimensions...</span>
+            </div>
+          ) : scenarios.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {scenarios.map(scenario => (
+                <button
+                  key={scenario.id}
+                  onClick={() => setSelectedScenario(scenario.id)}
+                  className="p-4 rounded-lg border border-slate-200 hover:border-slate-300 transition-colors text-left"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="text-2xl">{scenario.icon}</div>
+                    <div>
+                      <div className="font-medium text-slate-900">{scenario.name}</div>
+                      <div className="text-sm text-slate-600">{scenario.description}</div>
+                    </div>
                   </div>
-                </div>
-              </button>
-            ))}
-          </div>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-8 text-slate-600">
+              <p className="mb-2">No skill dimensions found for your role.</p>
+              <p className="text-sm">Please contact your administrator to configure skill dimensions for {user.role}.</p>
+            </div>
+          )}
         </div>
       )}
 
@@ -613,6 +708,9 @@ const AIRolePlayTraining = ({ user }) => {
               </h4>
               <p className="text-sm text-slate-500">
                 {scenarios.find(s => s.id === selectedScenario)?.description}
+              </p>
+              <p className="text-xs text-sky-600 mt-1">
+                Training scenario for: {user.role === 'store_manager' ? 'Store Manager' : user.role === 'head_chef' ? 'Head Chef' : user.role}
               </p>
             </div>
             <div className="flex gap-2">
@@ -1066,7 +1164,7 @@ const AssignTraining = () => {
 
 const Login = ({ onLogin }) => {
   const [name, setName] = useState("");
-  const [role, setRole] = useState("employee");
+  const [role, setRole] = useState("store_manager");
   const [userId, setUserId] = useState("");
   const navigate = useNavigate();
   const { t } = useTranslation();
@@ -1076,12 +1174,18 @@ const Login = ({ onLogin }) => {
     if (!name || !userId) return;
     const user = { name, role, id: userId };
     onLogin(user);
-    navigate(`/${role}`);
+    
+    // Redirect to appropriate route based on role
+    if (role === "store_manager" || role === "head_chef") {
+      navigate("/employee"); // Both skill dimension roles go to employee view
+    } else {
+      navigate(`/${role}`);
+    }
   };
 
   const fillDemoEmployee = () => {
     setName("John");
-    setRole("employee");
+    setRole("store_manager");
     setUserId("d33b2c44-baaa-4e43-b532-e82ecbe405d6");
   };
 
@@ -1093,13 +1197,13 @@ const Login = ({ onLogin }) => {
 
   const fillDemoHeadChef = () => {
     setName("Chef Sarah");
-    setRole("employee");
+    setRole("head_chef");
     setUserId("head-chef-001");
   };
 
   const fillDemoHeadManager = () => {
-    setName("Director Mike");
-    setRole("manager");
+    setName("店长 Mike");
+    setRole("store_manager");
     setUserId("head-manager-001");
   };
 
@@ -1115,8 +1219,9 @@ const Login = ({ onLogin }) => {
           <div>
             <label className="mb-1 block text-sm text-slate-600">{t('login.role')}</label>
             <select className="input" value={role} onChange={(e) => setRole(e.target.value)}>
-              <option value="employee">{t('header.employee')}</option>
-              <option value="manager">{t('header.manager')}</option>
+              <option value="store_manager">店长 (Store Manager)</option>
+              <option value="head_chef">主厨 (Head Chef)</option>
+              <option value="manager">Manager</option>
             </select>
           </div>
           <div>
