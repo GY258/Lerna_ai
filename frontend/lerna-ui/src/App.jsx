@@ -495,13 +495,16 @@ const AIRolePlayTraining = ({ user }) => {
           const data = await response.json();
           const skillDimensions = data.skill_dimensions || [];
           
-          // Convert skill dimensions to training scenarios
-          const trainingScenarios = skillDimensions.map((skill, index) => ({
-            id: `skill-${index}`,
-            name: skill,
-            icon: getSkillIcon(skill),
-            description: `Practice and improve your skills in ${skill} through interactive role-play scenarios.`
-          }));
+          // Convert skill dimensions to training scenarios (only roleplay preferred)
+          const trainingScenarios = skillDimensions
+            .filter(skill => skill.preferred_mode === "roleplay")
+            .map((skill, index) => ({
+              id: `skill-${index}`,
+              name: skill.name,
+              icon: getSkillIcon(skill.name),
+              description: `Practice and improve your skills in ${skill.name} through interactive role-play scenarios. ${skill.notes || ''}`,
+              notes: skill.notes
+            }));
           
           setScenarios(trainingScenarios);
         } else {
@@ -696,10 +699,13 @@ const AIRolePlayTraining = ({ user }) => {
                 >
                   <div className="flex items-center gap-3">
                     <div className="text-2xl">{scenario.icon}</div>
-                    <div>
-                      <div className="font-medium text-slate-900">{scenario.name}</div>
-                      <div className="text-sm text-slate-600">{scenario.description}</div>
-                    </div>
+                                      <div>
+                    <div className="font-medium text-slate-900">{scenario.name}</div>
+                    <div className="text-sm text-slate-600">{scenario.description}</div>
+                    {scenario.notes && (
+                      <div className="text-xs text-sky-600 mt-1 italic">{scenario.notes}</div>
+                    )}
+                  </div>
                   </div>
                 </button>
               ))}
@@ -863,14 +869,17 @@ const ProblemSolvingCaseStudy = ({ user }) => {
           const data = await response.json();
           const skillDimensions = data.skill_dimensions || [];
           
-          // Convert skill dimensions to case study scenarios
-          const caseScenarios = skillDimensions.map((skill, index) => ({
-            id: `case-${index}`,
-            name: skill,
-            icon: getCaseIcon(skill),
-            description: `Analyze and solve real-world problems related to ${skill}. Practice critical thinking and decision-making skills.`,
-            difficulty: getDifficultyLevel(skill)
-          }));
+          // Convert skill dimensions to case study scenarios (only problem-solving preferred)
+          const caseScenarios = skillDimensions
+            .filter(skill => skill.preferred_mode === "problem-solving")
+            .map((skill, index) => ({
+              id: `case-${index}`,
+              name: skill.name,
+              icon: getCaseIcon(skill.name),
+              description: `Analyze and solve real-world problems related to ${skill.name}. Practice critical thinking and decision-making skills. ${skill.notes || ''}`,
+              difficulty: getDifficultyLevel(skill.name),
+              notes: skill.notes
+            }));
           
           setCases(caseScenarios);
         } else {
@@ -1062,6 +1071,9 @@ const ProblemSolvingCaseStudy = ({ user }) => {
                     <div className="flex-1">
                       <div className="font-medium text-slate-900">{caseStudy.name}</div>
                       <div className="text-sm text-slate-600">{caseStudy.description}</div>
+                      {caseStudy.notes && (
+                        <div className="text-xs text-sky-600 mt-1 italic">{caseStudy.notes}</div>
+                      )}
                       <div className="mt-2">
                         <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
                           caseStudy.difficulty === 'Expert' ? 'bg-red-100 text-red-800' :
