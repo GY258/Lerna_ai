@@ -147,6 +147,16 @@ const EmployeeQuizList = ({ user }) => {
         >
           {t('employee.aiRoleplay')}
         </button>
+        <button
+          onClick={() => setActiveLearningTab("case-study")}
+          className={`flex-1 rounded-lg px-4 py-2 text-sm font-medium transition ${
+            activeLearningTab === "case-study"
+              ? "bg-white text-slate-900 shadow-sm"
+              : "text-slate-600 hover:text-slate-900"
+          }`}
+        >
+          {t('employee.aiproblemstudy')}
+        </button>
       </div>
 
       {/* Quizzes Tab */}
@@ -185,6 +195,11 @@ const EmployeeQuizList = ({ user }) => {
       {/* AI Role Play Training Tab */}
       {activeLearningTab === "ai-roleplay" && (
         <AIRolePlayTraining user={user} />
+      )}
+
+      {/* Problem-solving Case Study Tab */}
+      {activeLearningTab === "case-study" && (
+        <ProblemSolvingCaseStudy user={user} />
       )}
     </div>
   );
@@ -807,6 +822,378 @@ const AIRolePlayTraining = ({ user }) => {
               className="text-sm text-slate-500 hover:text-slate-700"
             >
               {t('aiRoleplay.close')}
+            </button>
+          </div>
+          <div className="bg-slate-50 rounded-lg p-4">
+            <div className="prose prose-sm max-w-none">
+              {feedback.split('\n').map((line, index) => (
+                <p key={index} className="mb-2">{line}</p>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+const ProblemSolvingCaseStudy = ({ user }) => {
+  const [conversation, setConversation] = useState([]);
+  const [userInput, setUserInput] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [selectedCase, setSelectedCase] = useState("");
+  const [feedback, setFeedback] = useState("");
+  const [showFeedback, setShowFeedback] = useState(false);
+  const [cases, setCases] = useState([]);
+  const [casesLoading, setCasesLoading] = useState(true);
+  const { t } = useTranslation();
+
+  // Fetch skill dimensions and convert to case study scenarios
+  useEffect(() => {
+    const fetchSkillDimensions = async () => {
+      try {
+        setCasesLoading(true);
+        const response = await fetch('http://localhost:8000/employee/skill-dimensions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ role: user.role })
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          const skillDimensions = data.skill_dimensions || [];
+          
+          // Convert skill dimensions to case study scenarios
+          const caseScenarios = skillDimensions.map((skill, index) => ({
+            id: `case-${index}`,
+            name: skill,
+            icon: getCaseIcon(skill),
+            description: `Analyze and solve real-world problems related to ${skill}. Practice critical thinking and decision-making skills.`,
+            difficulty: getDifficultyLevel(skill)
+          }));
+          
+          setCases(caseScenarios);
+        } else {
+          console.error('Failed to fetch skill dimensions');
+          setCases(getDefaultCases());
+        }
+      } catch (error) {
+        console.error('Error fetching skill dimensions:', error);
+        setCases(getDefaultCases());
+      } finally {
+        setCasesLoading(false);
+      }
+    };
+
+    if (user && user.role) {
+      fetchSkillDimensions();
+    }
+  }, [user]);
+
+  // Helper function to get appropriate icon for each case
+  const getCaseIcon = (skill) => {
+    const iconMap = {
+      '运营与标准执行': '📋',
+      '财务与成本管理': '💰',
+      '顾客体验与客诉闭环': '😊',
+      '团队管理与人事': '👥',
+      '应急与跨部门协同': '🚨',
+      '排班与人效管理': '⏰',
+      '供应链保障': '📦',
+      '菜品与标准化': '🍽️',
+      '食安与安全管理': '🛡️',
+      '成本与毛利控制': '📊',
+      '出菜与产能': '⚡',
+      '团队与培训': '🎓',
+      '供应链协同': '🤝'
+    };
+    return iconMap[skill] || '🎯';
+  };
+
+  // Helper function to assign difficulty levels
+  const getDifficultyLevel = (skill) => {
+    const difficultyMap = {
+      '运营与标准执行': 'Intermediate',
+      '财务与成本管理': 'Advanced',
+      '顾客体验与客诉闭环': 'Intermediate',
+      '团队管理与人事': 'Advanced',
+      '应急与跨部门协同': 'Expert',
+      '排班与人效管理': 'Intermediate',
+      '供应链保障': 'Advanced',
+      '菜品与标准化': 'Intermediate',
+      '食安与安全管理': 'Advanced',
+      '成本与毛利控制': 'Advanced',
+      '出菜与产能': 'Intermediate',
+      '团队与培训': 'Advanced',
+      '供应链协同': 'Advanced'
+    };
+    return difficultyMap[skill] || 'Intermediate';
+  };
+
+  // Fallback default cases if API fails
+  const getDefaultCases = () => [
+    { 
+      id: "customer-complaint", 
+      name: "Customer Complaint Resolution", 
+      icon: "😤",
+      description: "Handle difficult customer complaints and find effective solutions.",
+      difficulty: "Intermediate"
+    },
+    { 
+      id: "food-safety-issue", 
+      name: "Food Safety Incident", 
+      icon: "🛡️",
+      description: "Address food safety concerns and implement preventive measures.",
+      difficulty: "Advanced"
+    },
+    { 
+      id: "team-conflict", 
+      name: "Team Conflict Management", 
+      icon: "🤝",
+      description: "Resolve conflicts between team members and improve collaboration.",
+      difficulty: "Advanced"
+    }
+  ];
+
+  const startNewCase = () => {
+    setConversation([]);
+    setUserInput("");
+    setSelectedCase("");
+    setFeedback("");
+    setShowFeedback(false);
+  };
+
+  const requestFeedback = async () => {
+    if (conversation.length === 0) return;
+    
+    setIsLoading(true);
+    try {
+      const response = await fetch('http://localhost:8000/ai-training/roleplay-feedback', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          scenario_id: selectedCase,
+          scenario_name: cases.find(c => c.id === selectedCase)?.name || 'Unknown Case',
+          user_response: conversation.map(msg => `${msg.role}: ${msg.content}`).join('\n'),
+          user_role: user.role,
+          scenario_history: []
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setFeedback(data.feedback || data.response || "Excellent problem-solving approach! Your analysis shows strong critical thinking skills.");
+        setShowFeedback(true);
+      } else {
+        setFeedback("抱歉，无法获取反馈。请稍后再试。");
+        setShowFeedback(true);
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      setFeedback("抱歉，连接出现问题。请检查网络连接后重试。");
+      setShowFeedback(true);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const sendMessage = async () => {
+    if (!userInput.trim() || isLoading) return;
+
+    const userMessage = { role: "user", content: userInput };
+    setConversation(prev => [...prev, userMessage]);
+    setUserInput("");
+    setIsLoading(true);
+
+    try {
+      const response = await fetch('http://localhost:8000/ai-training/roleplay-chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: userInput,
+          user_role: user.role,
+          skill_dimension: cases.find(c => c.id === selectedCase)?.name || 'General Case Study',
+          conversation_history: conversation,
+          test_history: []
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const aiMessage = { role: "assistant", content: data.response };
+        setConversation(prev => [...prev, aiMessage]);
+      } else {
+        const errorMessage = { role: "assistant", content: "I'm sorry, I'm having trouble processing your response. Please try again." };
+        setConversation(prev => [...prev, errorMessage]);
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      const errorMessage = { role: "assistant", content: "I'm sorry, there was a connection error. Please check your internet connection and try again." };
+      setConversation(prev => [...prev, errorMessage]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Case Study Selection */}
+      {!selectedCase && (
+        <div className="card">
+          <h4 className="mb-4 font-medium text-slate-900">
+            {casesLoading ? 'Loading case study scenarios...' : 'Choose a problem-solving case study'}
+          </h4>
+          
+          {casesLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-2 border-sky-500 border-t-transparent"></div>
+              <span className="ml-2 text-slate-600">Loading case studies...</span>
+            </div>
+          ) : cases.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {cases.map(caseStudy => (
+                <button
+                  key={caseStudy.id}
+                  onClick={() => setSelectedCase(caseStudy.id)}
+                  className="p-4 rounded-lg border border-slate-200 hover:border-slate-300 transition-colors text-left"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="text-2xl">{caseStudy.icon}</div>
+                    <div className="flex-1">
+                      <div className="font-medium text-slate-900">{caseStudy.name}</div>
+                      <div className="text-sm text-slate-600">{caseStudy.description}</div>
+                      <div className="mt-2">
+                        <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                          caseStudy.difficulty === 'Expert' ? 'bg-red-100 text-red-800' :
+                          caseStudy.difficulty === 'Advanced' ? 'bg-orange-100 text-orange-800' :
+                          'bg-green-100 text-green-800'
+                        }`}>
+                          {caseStudy.difficulty}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-8 text-slate-600">
+              <p className="mb-2">No case studies found for your role.</p>
+              <p className="text-sm">Please contact your administrator to configure case studies for {user.role}.</p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Case Study Interface */}
+      {selectedCase && (
+        <div className="card">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h4 className="font-medium text-slate-900">
+                {cases.find(c => c.id === selectedCase)?.name}
+              </h4>
+              <p className="text-sm text-slate-500">
+                {cases.find(c => c.id === selectedCase)?.description}
+              </p>
+              <p className="text-xs text-sky-600 mt-1">
+                Case study for: {user.role === 'store_manager' ? 'Store Manager' : user.role === 'head_chef' ? 'Head Chef' : user.role}
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={requestFeedback}
+                disabled={conversation.length === 0 || isLoading}
+                className="btn-secondary text-sm"
+              >
+                Get Analysis Feedback
+              </button>
+              <button
+                onClick={startNewCase}
+                className="text-sm text-slate-500 hover:text-slate-700"
+              >
+                New Case Study
+              </button>
+            </div>
+          </div>
+
+          {conversation.length === 0 && (
+            <div className="text-center py-8 text-slate-600">
+              <p className="mb-2">Welcome to the Problem-solving Case Study!</p>
+              <p className="text-sm">This case study will present you with a real-world scenario related to your selected skill area.</p>
+              <div className="mt-4">
+                <button
+                  onClick={() => setUserInput("I'm ready to begin the case study analysis")}
+                  className="btn-primary"
+                >
+                  Start Case Study
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Conversation History */}
+          <div className="space-y-4 mb-4 max-h-96 overflow-y-auto">
+            {conversation.map((msg, index) => (
+              <div
+                key={index}
+                className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+              >
+                <div
+                  className={`max-w-[80%] rounded-lg px-4 py-2 ${
+                    msg.role === 'user'
+                      ? 'bg-sky-500 text-white'
+                      : 'bg-slate-100 text-slate-900'
+                  }`}
+                >
+                  {msg.content}
+                </div>
+              </div>
+            ))}
+            {isLoading && (
+              <div className="flex justify-start">
+                <div className="bg-slate-100 text-slate-900 rounded-lg px-4 py-2">
+                  <div className="flex items-center gap-2">
+                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-slate-400 border-t-transparent"></div>
+                    AI is analyzing your response...
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Input Area */}
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={userInput}
+              onChange={(e) => setUserInput(e.target.value)}
+              onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
+              placeholder="Type your analysis, questions, or solutions..."
+              className="flex-1 input"
+              disabled={isLoading}
+            />
+            <button
+              onClick={sendMessage}
+              disabled={isLoading || !userInput.trim()}
+              className="btn-primary"
+            >
+              Send
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Feedback Section */}
+      {showFeedback && (
+        <div className="card">
+          <div className="flex items-center justify-between mb-4">
+            <h4 className="font-medium text-slate-900">Case Study Analysis Feedback</h4>
+            <button
+              onClick={() => setShowFeedback(false)}
+              className="text-sm text-slate-500 hover:text-slate-700"
+            >
+              Close
             </button>
           </div>
           <div className="bg-slate-50 rounded-lg p-4">

@@ -31,6 +31,7 @@ export const zh = {
     assignedQuizzes: "📝 分配的测验",
     aiTesting: "🤖 AI测试",
     aiRoleplay: "🎭 AI角色扮演训练",
+    aiproblemstudy: "🎭 AI问题解决训练",
     noQuizzes: "尚未分配测验。",
     empty: "空",
     backToList: "⬅ 返回列表"

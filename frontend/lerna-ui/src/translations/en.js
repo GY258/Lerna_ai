@@ -31,6 +31,7 @@ export const en = {
     assignedQuizzes: "📝 Assigned Quizzes",
     aiTesting: "🤖 AI Testing",
     aiRoleplay: "🎭 AI Role Play Training",
+    aiproblemstudy: "🎭 AI Problem-solving Training",
     noQuizzes: "No quizzes assigned yet.",
     empty: "Empty",
     backToList: "⬅ Back to list"
