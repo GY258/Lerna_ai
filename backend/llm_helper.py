@@ -139,3 +139,112 @@ def generate_ai_tutor_response(
 
     except Exception as e:
         return f"抱歉，我无法回答这个问题：{str(e)}"
+
+def generate_quiz_from_sop(sop_text: str) -> List[dict]:
+    """
+    Generate quiz questions from SOP text
+    This is a fake implementation that returns predefined quiz questions
+    """
+    # Fake quiz generation based on SOP text
+    # In a real implementation, this would use AI to generate questions from the SOP
+    
+    quiz_items = [
+        {
+            "sop_topic": "Standard Operating Procedures",
+            "question": "What is the primary purpose of SOPs?",
+            "options": [
+                "To make work more complicated",
+                "To ensure consistency and quality",
+                "To reduce employee training",
+                "To increase paperwork"
+            ],
+            "answer": "To ensure consistency and quality",
+            "type": "choice",
+            "difficulty": "easy",
+            "source_text": sop_text[:100] + "...",
+            "tags": ["sop", "basics"]
+        },
+        {
+            "sop_topic": "SOP Implementation",
+            "question": "When should SOPs be updated?",
+            "options": [],
+            "answer": "When processes change or improvements are identified",
+            "type": "fill_blank",
+            "difficulty": "medium",
+            "source_text": sop_text[:100] + "...",
+            "tags": ["sop", "maintenance"]
+        },
+        {
+            "sop_topic": "SOP Compliance",
+            "question": "Which of the following is NOT a benefit of following SOPs?",
+            "options": [
+                "Reduced errors and accidents",
+                "Improved efficiency",
+                "Increased employee confusion",
+                "Better quality control"
+            ],
+            "answer": "Increased employee confusion",
+            "type": "choice",
+            "difficulty": "easy",
+            "source_text": sop_text[:100] + "...",
+            "tags": ["sop", "benefits"]
+        },
+        {
+            "sop_topic": "SOP Documentation",
+            "question": "What should be included in a well-written SOP?",
+            "options": [
+                "Clear step-by-step instructions",
+                "Safety precautions",
+                "Quality standards",
+                "All of the above"
+            ],
+            "answer": "All of the above",
+            "type": "choice",
+            "difficulty": "medium",
+            "source_text": sop_text[:100] + "...",
+            "tags": ["sop", "documentation"]
+        },
+        {
+            "sop_topic": "SOP Training",
+            "question": "How often should employees be trained on SOPs?",
+            "options": [],
+            "answer": "Regularly, especially when SOPs are updated or new employees join",
+            "type": "fill_blank",
+            "difficulty": "medium",
+            "source_text": sop_text[:100] + "...",
+            "tags": ["sop", "training"]
+        }
+    ]
+    
+    # Add more questions if SOP text is longer
+    if len(sop_text) > 500:
+        additional_questions = [
+            {
+                "sop_topic": "Advanced SOP Topics",
+                "question": "What is the role of management in SOP implementation?",
+                "options": [
+                    "To ignore SOPs completely",
+                    "To provide leadership and ensure compliance",
+                    "To create unnecessary complexity",
+                    "To avoid responsibility"
+                ],
+                "answer": "To provide leadership and ensure compliance",
+                "type": "choice",
+                "difficulty": "hard",
+                "source_text": sop_text[:100] + "...",
+                "tags": ["sop", "management"]
+            },
+            {
+                "sop_topic": "SOP Review Process",
+                "question": "Who should be involved in reviewing and updating SOPs?",
+                "options": [],
+                "answer": "Subject matter experts, employees who use the procedures, and management",
+                "type": "fill_blank",
+                "difficulty": "hard",
+                "source_text": sop_text[:100] + "...",
+                "tags": ["sop", "review"]
+            }
+        ]
+        quiz_items.extend(additional_questions)
+    
+    return quiz_items

@@ -3,6 +3,9 @@
 
 import React, { useEffect, useState } from "react";
 import { BrowserRouter as Router, Route, Routes, Navigate, useNavigate, useParams, Link } from "react-router-dom";
+import { LanguageProvider, useLanguage } from './contexts/LanguageContext';
+import { useTranslation } from './hooks/useTranslation';
+import LanguageSwitcher from './components/LanguageSwitcher';
 import './App.css';
 
 const mockUser = {
@@ -32,38 +35,43 @@ function App() {
   };
 
   return (
-    <Router>
-      <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100">
-        {user && <Header user={user} onLogout={handleLogout} />}
-        <main className="mx-auto max-w-6xl px-4 py-8">
-          <Routes>
-            <Route path="/login" element={<Login onLogin={handleLogin} />} />
-            <Route path="/" element={user ? <Navigate to={`/${user.role}`} /> : <Navigate to="/login" />} />
-            <Route path="/manager" element={user ? <ManagerView /> : <Navigate to="/login" />} />
-            <Route path="/employee" element={user ? <EmployeeQuizList user={user} /> : <Navigate to="/login" />} />
-            <Route path="/quiz/:id" element={user ? <QuizTaking user={user} /> : <Navigate to="/login" />} />
-          </Routes>
-        </main>
-      </div>
-    </Router>
+    <LanguageProvider>
+      <Router>
+        <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100">
+          {user && <Header user={user} onLogout={handleLogout} />}
+          <main className="mx-auto max-w-6xl px-4 py-8">
+            <Routes>
+              <Route path="/login" element={<Login onLogin={handleLogin} />} />
+              <Route path="/" element={user ? <Navigate to={`/${user.role}`} /> : <Navigate to="/login" />} />
+              <Route path="/manager" element={user ? <ManagerView /> : <Navigate to="/login" />} />
+              <Route path="/employee" element={user ? <EmployeeQuizList user={user} /> : <Navigate to="/login" />} />
+              <Route path="/quiz/:id" element={user ? <QuizTaking user={user} /> : <Navigate to="/login" />} />
+            </Routes>
+          </main>
+        </div>
+      </Router>
+    </LanguageProvider>
   );
 }
 
 function Header({ user, onLogout }) {
+  const { t } = useTranslation();
+  
   return (
     <header className="border-b border-slate-200 bg-white/70 backdrop-blur">
       <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4">
         <div className="flex items-center gap-3">
           <div className="grid h-9 w-9 place-items-center rounded-xl bg-sky-600 text-white font-bold">L</div>
           <div>
-            <h1 className="text-lg font-semibold leading-tight">Lerna Training</h1>
-            <p className="text-xs text-slate-500">Welcome, {user.name}</p>
+            <h1 className="text-lg font-semibold leading-tight">{t('header.title')}</h1>
+            <p className="text-xs text-slate-500">{t('header.welcome')}, {user.name}</p>
           </div>
         </div>
         <nav className="flex items-center gap-2">
-          <Link className="btn-ghost" to="/employee">Employee</Link>
-          <Link className="btn-ghost" to="/manager">Manager</Link>
-          <button className="btn-ghost" onClick={onLogout}>Logout</button>
+          <LanguageSwitcher />
+          <Link className="btn-ghost" to="/employee">{t('header.employee')}</Link>
+          <Link className="btn-ghost" to="/manager">{t('header.manager')}</Link>
+          <button className="btn-ghost" onClick={onLogout}>{t('header.logout')}</button>
         </nav>
       </div>
     </header>
@@ -74,6 +82,7 @@ const EmployeeQuizList = ({ user }) => {
   const [quizzes, setQuizzes] = useState([]);
   const [activeLearningTab, setActiveLearningTab] = useState("quizzes");
   const navigate = useNavigate();
+  const { t } = useTranslation();
 
   useEffect(() => {
     async function fetchAssigned() {
@@ -89,8 +98,8 @@ const EmployeeQuizList = ({ user }) => {
       {/* Learning Tabs */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight">Learning Dashboard</h2>
-          <p className="text-sm text-slate-500">Choose your learning path.</p>
+          <h2 className="text-2xl font-bold tracking-tight">{t('employee.title')}</h2>
+          <p className="text-sm text-slate-500">{t('employee.subtitle')}</p>
         </div>
       </div>
 
@@ -104,7 +113,7 @@ const EmployeeQuizList = ({ user }) => {
               : "text-slate-600 hover:text-slate-900"
           }`}
         >
-          📝 Assigned Quizzes
+          {t('employee.assignedQuizzes')}
         </button>
         <button
           onClick={() => setActiveLearningTab("ai-testing")}
@@ -114,7 +123,7 @@ const EmployeeQuizList = ({ user }) => {
               : "text-slate-600 hover:text-slate-900"
           }`}
         >
-          🤖 AI Testing
+          {t('employee.aiTesting')}
         </button>
         <button
           onClick={() => setActiveLearningTab("ai-roleplay")}
@@ -124,7 +133,7 @@ const EmployeeQuizList = ({ user }) => {
               : "text-slate-600 hover:text-slate-900"
           }`}
         >
-          🎭 AI Role Play Training
+          {t('employee.aiRoleplay')}
         </button>
       </div>
 
@@ -134,8 +143,8 @@ const EmployeeQuizList = ({ user }) => {
           {quizzes.length === 0 ? (
             <div className="col-span-full">
               <div className="card flex items-center gap-3">
-                <span className="pill">Empty</span>
-                <p className="text-slate-600">No quizzes assigned yet.</p>
+                <span className="pill">{t('employee.empty')}</span>
+                <p className="text-slate-600">{t('employee.noQuizzes')}</p>
               </div>
             </div>
           ) : (
@@ -176,13 +185,14 @@ const RoleplayTraining = ({ user }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [selectedTopic, setSelectedTopic] = useState("");
   const [activeTab, setActiveTab] = useState("active");
+  const { t } = useTranslation();
 
   const topics = [
-    { id: "customer-service", name: "Customer Service", icon: "👥" },
-    { id: "food-safety", name: "Food Safety", icon: "🛡️" },
-    { id: "menu-knowledge", name: "Menu Knowledge", icon: "📋" },
-    { id: "teamwork", name: "Teamwork", icon: "🤝" },
-    { id: "problem-solving", name: "Problem Solving", icon: "🧩" }
+    { id: "customer-service", name: t('aiTesting.customerService'), icon: "👥" },
+    { id: "food-safety", name: t('aiTesting.foodSafety'), icon: "🛡️" },
+    { id: "menu-knowledge", name: t('aiTesting.menuKnowledge'), icon: "📋" },
+    { id: "teamwork", name: t('aiTesting.teamwork'), icon: "🤝" },
+    { id: "problem-solving", name: t('aiTesting.problemSolving'), icon: "🧩" }
   ];
 
   const saveToTestHistory = (session) => {
@@ -238,12 +248,12 @@ const RoleplayTraining = ({ user }) => {
           saveToTestHistory(testSession);
         }
       } else {
-        const errorMessage = { role: "assistant", content: "抱歉，我遇到了一些问题。请稍后再试。" };
+        const errorMessage = { role: "assistant", content: t('errors.generalError') };
         setConversation(prev => [...prev, errorMessage]);
       }
     } catch (error) {
       console.error('Error:', error);
-      const errorMessage = { role: "assistant", content: "抱歉，连接出现问题。请检查网络连接后重试。" };
+      const errorMessage = { role: "assistant", content: t('errors.connectionError') };
       setConversation(prev => [...prev, errorMessage]);
     } finally {
       setIsLoading(false);
@@ -255,8 +265,8 @@ const RoleplayTraining = ({ user }) => {
       <div className="card">
         <div className="flex items-center justify-between">
           <div>
-            <h3 className="text-lg font-semibold text-slate-900">🤖 AI Testing</h3>
-            <p className="text-sm text-slate-500">Test your skills with AI-generated scenarios and assessments</p>
+            <h3 className="text-lg font-semibold text-slate-900">{t('aiTesting.title')}</h3>
+            <p className="text-sm text-slate-500">{t('aiTesting.subtitle')}</p>
           </div>
         </div>
       </div>
@@ -264,7 +274,7 @@ const RoleplayTraining = ({ user }) => {
       {/* Topic Selection */}
       {!selectedTopic && (
         <div className="card">
-          <h4 className="mb-4 font-medium text-slate-900">Choose a topic to test</h4>
+          <h4 className="mb-4 font-medium text-slate-900">{t('aiTesting.chooseTopic')}</h4>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
             {topics.map(topic => (
               <button
@@ -284,31 +294,31 @@ const RoleplayTraining = ({ user }) => {
       {selectedTopic && (
         <div className="card">
           <div className="flex items-center justify-between mb-4">
-            <h4 className="font-medium text-slate-900">AI Testing Assistant</h4>
+            <h4 className="font-medium text-slate-900">{t('aiTesting.assistant')}</h4>
             <button
               onClick={startNewSession}
               className="text-sm text-slate-500 hover:text-slate-700"
             >
-              New Session
+              {t('aiTesting.newSession')}
             </button>
           </div>
 
           {conversation.length === 0 && (
             <div className="text-center py-8 text-slate-600">
-              <p className="mb-2">I'm your AI testing assistant for skill assessment scenarios.</p>
-              <p className="text-sm">Start by describing what you'd like to test, or try these examples:</p>
+              <p className="mb-2">{t('aiTesting.welcomeMessage')}</p>
+              <p className="text-sm">{t('aiTesting.startMessage')}</p>
               <div className="mt-4 space-y-2">
                 <button
                   onClick={() => setUserInput("test my food safety handling skills")}
                   className="block w-full p-2 text-sm border border-slate-200 rounded hover:bg-slate-50"
                 >
-                  Test my food safety handling skills
+                  {t('aiTesting.testFoodSafety')}
                 </button>
                 <button
                   onClick={() => setUserInput("assess my customer service approach")}
                   className="block w-full p-2 text-sm border border-slate-200 rounded hover:bg-slate-50"
                 >
-                  Assess my customer service approach
+                  {t('aiTesting.assessCustomerService')}
                 </button>
               </div>
             </div>
@@ -337,7 +347,7 @@ const RoleplayTraining = ({ user }) => {
                 <div className="bg-slate-100 text-slate-900 rounded-lg px-4 py-2">
                   <div className="flex items-center gap-2">
                     <div className="animate-spin rounded-full h-4 w-4 border-2 border-slate-400 border-t-transparent"></div>
-                    Thinking...
+                    {t('aiTesting.thinking')}
                   </div>
                 </div>
               </div>
@@ -351,7 +361,7 @@ const RoleplayTraining = ({ user }) => {
               value={userInput}
               onChange={(e) => setUserInput(e.target.value)}
               onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
-              placeholder="Describe what you want to test..."
+              placeholder={t('aiTesting.inputPlaceholder')}
               className="flex-1 input"
               disabled={isLoading}
             />
@@ -360,7 +370,7 @@ const RoleplayTraining = ({ user }) => {
               disabled={isLoading || !userInput.trim()}
               className="btn-primary"
             >
-              Send
+              {t('aiTesting.send')}
             </button>
           </div>
         </div>
@@ -370,7 +380,7 @@ const RoleplayTraining = ({ user }) => {
       {testHistory.length > 0 && (
         <div className="card">
           <div className="flex items-center justify-between mb-4">
-            <h4 className="font-medium text-slate-900">Your Test History</h4>
+            <h4 className="font-medium text-slate-900">{t('aiTesting.testHistory')}</h4>
             <div className="flex gap-1 rounded-lg bg-slate-100 p-1">
               <button
                 onClick={() => setActiveTab("active")}
@@ -380,7 +390,7 @@ const RoleplayTraining = ({ user }) => {
                     : "text-slate-600"
                 }`}
               >
-                Active Testing
+                {t('aiTesting.activeTesting')}
               </button>
               <button
                 onClick={() => setActiveTab("history")}
@@ -390,14 +400,14 @@ const RoleplayTraining = ({ user }) => {
                     : "text-slate-600"
                 }`}
               >
-                Test History
+                {t('aiTesting.testHistoryTab')}
               </button>
             </div>
           </div>
 
           {activeTab === "active" && (
             <div className="text-center py-4 text-slate-600">
-              <p>Continue your current test session or start a new one.</p>
+              <p>{t('aiTesting.continueMessage')}</p>
             </div>
           )}
 
@@ -419,7 +429,7 @@ const RoleplayTraining = ({ user }) => {
                       </p>
                     </div>
                     <button className="text-sm text-sky-600 hover:text-sky-700">
-                      Load Session
+                      {t('aiTesting.loadSession')}
                     </button>
                   </div>
                 </div>
@@ -439,43 +449,44 @@ const AIRolePlayTraining = ({ user }) => {
   const [selectedScenario, setSelectedScenario] = useState("");
   const [feedback, setFeedback] = useState("");
   const [showFeedback, setShowFeedback] = useState(false);
+  const { t } = useTranslation();
 
   const scenarios = [
     { 
       id: "customer-complaint", 
-      name: "Customer Complaint Handling", 
+      name: t('aiRoleplay.customerComplaint'), 
       icon: "😤",
-      description: "Handle difficult customer complaints professionally"
+      description: t('aiRoleplay.customerComplaintDesc')
     },
     { 
       id: "food-safety-issue", 
-      name: "Food Safety Issue", 
+      name: t('aiRoleplay.foodSafetyIssue'), 
       icon: "🛡️",
-      description: "Respond to food safety concerns and incidents"
+      description: t('aiRoleplay.foodSafetyIssueDesc')
     },
     { 
       id: "team-conflict", 
-      name: "Team Conflict Resolution", 
+      name: t('aiRoleplay.teamConflict'), 
       icon: "🤝",
-      description: "Resolve conflicts between team members"
+      description: t('aiRoleplay.teamConflictDesc')
     },
     { 
       id: "rush-hour-pressure", 
-      name: "Rush Hour Pressure", 
+      name: t('aiRoleplay.rushHourPressure'), 
       icon: "⏰",
-      description: "Manage high-pressure situations during busy hours"
+      description: t('aiRoleplay.rushHourPressureDesc')
     },
     { 
       id: "menu-recommendation", 
-      name: "Menu Recommendation", 
+      name: t('aiRoleplay.menuRecommendation'), 
       icon: "🍽️",
-      description: "Provide excellent menu recommendations to customers"
+      description: t('aiRoleplay.menuRecommendationDesc')
     },
     { 
       id: "emergency-situation", 
-      name: "Emergency Situation", 
+      name: t('aiRoleplay.emergencySituation'), 
       icon: "🚨",
-      description: "Handle emergency situations calmly and effectively"
+      description: t('aiRoleplay.emergencySituationDesc')
     }
   ];
 
@@ -545,12 +556,12 @@ const AIRolePlayTraining = ({ user }) => {
         const aiMessage = { role: "assistant", content: data.response };
         setConversation(prev => [...prev, aiMessage]);
       } else {
-        const errorMessage = { role: "assistant", content: "抱歉，我遇到了一些问题。请稍后再试。" };
+        const errorMessage = { role: "assistant", content: t('errors.generalError') };
         setConversation(prev => [...prev, errorMessage]);
       }
     } catch (error) {
       console.error('Error:', error);
-      const errorMessage = { role: "assistant", content: "抱歉，连接出现问题。请检查网络连接后重试。" };
+      const errorMessage = { role: "assistant", content: t('errors.connectionError') };
       setConversation(prev => [...prev, errorMessage]);
     } finally {
       setIsLoading(false);
@@ -562,8 +573,8 @@ const AIRolePlayTraining = ({ user }) => {
       <div className="card">
         <div className="flex items-center justify-between">
           <div>
-            <h3 className="text-lg font-semibold text-slate-900">🎭 AI Role Play Training</h3>
-            <p className="text-sm text-slate-500">Practice real-world scenarios with AI and get personalized feedback</p>
+            <h3 className="text-lg font-semibold text-slate-900">{t('aiRoleplay.title')}</h3>
+            <p className="text-sm text-slate-500">{t('aiRoleplay.subtitle')}</p>
           </div>
         </div>
       </div>
@@ -571,7 +582,7 @@ const AIRolePlayTraining = ({ user }) => {
       {/* Scenario Selection */}
       {!selectedScenario && (
         <div className="card">
-          <h4 className="mb-4 font-medium text-slate-900">Choose a training scenario</h4>
+          <h4 className="mb-4 font-medium text-slate-900">{t('aiRoleplay.chooseScenario')}</h4>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {scenarios.map(scenario => (
               <button
@@ -610,27 +621,27 @@ const AIRolePlayTraining = ({ user }) => {
                 disabled={conversation.length === 0 || isLoading}
                 className="btn-secondary text-sm"
               >
-                Get Feedback
+                {t('aiRoleplay.getFeedback')}
               </button>
               <button
                 onClick={startNewScenario}
                 className="text-sm text-slate-500 hover:text-slate-700"
               >
-                New Scenario
+                {t('aiRoleplay.newScenario')}
               </button>
             </div>
           </div>
 
           {conversation.length === 0 && (
             <div className="text-center py-8 text-slate-600">
-              <p className="mb-2">Welcome to your role play training session!</p>
-              <p className="text-sm">Start the conversation by responding to the scenario. The AI will guide you through the situation.</p>
+              <p className="mb-2">{t('aiRoleplay.welcomeMessage')}</p>
+              <p className="text-sm">{t('aiRoleplay.startMessage')}</p>
               <div className="mt-4">
                 <button
                   onClick={() => setUserInput("I'm ready to start the role play scenario")}
                   className="btn-primary"
                 >
-                  Start Role Play
+                  {t('aiRoleplay.startRolePlay')}
                 </button>
               </div>
             </div>
@@ -659,7 +670,7 @@ const AIRolePlayTraining = ({ user }) => {
                 <div className="bg-slate-100 text-slate-900 rounded-lg px-4 py-2">
                   <div className="flex items-center gap-2">
                     <div className="animate-spin rounded-full h-4 w-4 border-2 border-slate-400 border-t-transparent"></div>
-                    AI is responding...
+                    {t('aiRoleplay.aiResponding')}
                   </div>
                 </div>
               </div>
@@ -673,7 +684,7 @@ const AIRolePlayTraining = ({ user }) => {
               value={userInput}
               onChange={(e) => setUserInput(e.target.value)}
               onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
-              placeholder="Type your response to the scenario..."
+              placeholder={t('aiRoleplay.inputPlaceholder')}
               className="flex-1 input"
               disabled={isLoading}
             />
@@ -682,7 +693,7 @@ const AIRolePlayTraining = ({ user }) => {
               disabled={isLoading || !userInput.trim()}
               className="btn-primary"
             >
-              Send
+              {t('aiTesting.send')}
             </button>
           </div>
         </div>
@@ -692,12 +703,12 @@ const AIRolePlayTraining = ({ user }) => {
       {showFeedback && (
         <div className="card">
           <div className="flex items-center justify-between mb-4">
-            <h4 className="font-medium text-slate-900">Training Feedback</h4>
+            <h4 className="font-medium text-slate-900">{t('aiRoleplay.trainingFeedback')}</h4>
             <button
               onClick={() => setShowFeedback(false)}
               className="text-sm text-slate-500 hover:text-slate-700"
             >
-              Close
+              {t('aiRoleplay.close')}
             </button>
           </div>
           <div className="bg-slate-50 rounded-lg p-4">
@@ -721,6 +732,7 @@ const QuizTaking = ({ user }) => {
   const [submitted, setSubmitted] = useState(false);
   const [correct, setCorrect] = useState(false);
   const [score, setScore] = useState(null);
+  const { t } = useTranslation();
 
   useEffect(() => {
     async function loadQuiz() {
@@ -749,21 +761,21 @@ const QuizTaking = ({ user }) => {
     setScore(data.score);
   };
   const navigate = useNavigate();
-  if (!quiz) return <p className="text-slate-600">Loading quiz…</p>;
+  if (!quiz) return <p className="text-slate-600">{t('quiz.loading')}</p>;
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold tracking-tight">{quiz.sop_topic}</h2>
         <button className="btn-ghost" onClick={() => navigate("/employee")}>
-          ⬅ Back to list
+          {t('employee.backToList')}
         </button>
       </div>
 
       <div className="card">
         <p className="mb-3 font-medium text-slate-900">{quiz.question}</p>
         <p className="mb-4 text-sm text-slate-500 italic">
-          Type: {quiz.type === "choice" ? "Multiple Choice" : "Written Response"}
+          {t('quiz.type')}: {quiz.type === "choice" ? t('quiz.multipleChoice') : t('quiz.writtenResponse')}
         </p>
         {quiz.type === "choice" ? (
           <div className="space-y-2">
@@ -788,18 +800,18 @@ const QuizTaking = ({ user }) => {
         )}
 
         <div className="mt-4 flex gap-2">
-          <button onClick={handleSubmit} className="btn-success">Submit</button>
-          <button className="btn-secondary" onClick={() => navigate("/employee")}>Cancel</button>
+          <button onClick={handleSubmit} className="btn-success">{t('quiz.submit')}</button>
+          <button className="btn-secondary" onClick={() => navigate("/employee")}>{t('quiz.cancel')}</button>
         </div>
 
         {submitted && (
           <div className="mt-4 rounded-xl border p-3">
             {correct ? (
-              <p className="font-semibold text-emerald-600">✅ Correct!</p>
+              <p className="font-semibold text-emerald-600">{t('quiz.correct')}</p>
             ) : (
-              <p className="font-semibold text-rose-600">❌ Incorrect. Try again or review SOP.</p>
+              <p className="font-semibold text-rose-600">{t('quiz.incorrect')}</p>
             )}
-            <p className="mt-1 text-sm text-slate-600">Your score: {score}</p>
+            <p className="mt-1 text-sm text-slate-600">{t('quiz.score')}: {score}</p>
           </div>
         )}
       </div>
@@ -818,6 +830,7 @@ const ManagerView = () => {
   const [submissions, setSubmissions] = useState([]);
   const [userId, setUserId] = useState("");
   const [userReport, setUserReport] = useState(null);
+  const { t } = useTranslation();
 
   useEffect(() => {
     async function fetchSubmissions() {
@@ -840,26 +853,26 @@ const ManagerView = () => {
       <div className="card">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-xl font-semibold">Assign SOPs & Quizzes</h2>
-            <p className="text-sm text-slate-500">Paste SOP text to generate smart quizzes.</p>
+            <h2 className="text-xl font-semibold">{t('manager.title')}</h2>
+            <p className="text-sm text-slate-500">{t('manager.subtitle')}</p>
           </div>
         </div>
         <AssignTraining />
       </div>
 
-      <Section title="Team Quiz Submissions">
+      <Section title={t('manager.teamSubmissions')}>
         <SubmissionTable submissions={submissions} />
       </Section>
 
-      <Section title="Individual Learning Status">
+      <Section title={t('manager.individualStatus')}>
         <div className="mb-3 flex gap-2">
           <input
             value={userId}
             onChange={(e) => setUserId(e.target.value)}
-            placeholder="Enter user ID"
+            placeholder={t('manager.enterUserId')}
             className="input"
           />
-          <button onClick={fetchUserReport} className="btn-primary">Check</button>
+          <button onClick={fetchUserReport} className="btn-primary">{t('manager.check')}</button>
         </div>
         {userReport && (
           <div className="rounded-xl border bg-slate-50 p-4">
@@ -873,6 +886,7 @@ const ManagerView = () => {
 };
 
 const SubmissionTable = ({ submissions }) => {
+  const { t } = useTranslation();
   if (!submissions || submissions.length === 0) return <p className="text-slate-600">No submissions found.</p>;
 
   return (
@@ -916,6 +930,7 @@ const AssignTraining = () => {
   const [quiz, setQuiz] = useState([]);
   const [loading, setLoading] = useState(false);
   const [previewMode, setPreviewMode] = useState(false);
+  const { t } = useTranslation();
 
   const generateQuiz = async () => {
     setLoading(true);
@@ -932,7 +947,7 @@ const AssignTraining = () => {
       setQuiz(data);
     } catch (error) {
       console.error("Error generating quiz:", error);
-      alert("Error generating quiz. Please check backend connection.");
+      alert(t('manager.generateError'));
     } finally {
       setLoading(false);
     }
@@ -946,10 +961,10 @@ const AssignTraining = () => {
         body: JSON.stringify({ quiz }),
       });
       if (!res.ok) throw new Error("Failed to save quiz");
-      alert("✅ Quiz saved successfully!");
+      alert(t('manager.quizSaved'));
     } catch (err) {
       console.error(err);
-      alert("❌ Error saving quiz.");
+      alert(t('manager.saveError'));
     }
   };
 
@@ -964,7 +979,7 @@ const AssignTraining = () => {
       <textarea
         className="textarea"
         rows={5}
-        placeholder="Paste SOP here…"
+        placeholder={t('manager.pasteSop')}
         value={sopText}
         onChange={(e) => setSopText(e.target.value)}
       />
@@ -974,32 +989,32 @@ const AssignTraining = () => {
           className="btn-primary"
           disabled={loading || !sopText}
         >
-          {loading ? "Generating…" : "Generate Quiz"}
+          {loading ? t('manager.generating') : t('manager.generateQuiz')}
         </button>
         <button
           onClick={() => setPreviewMode(!previewMode)}
           className="btn-warning"
         >
-          {previewMode ? "Edit Mode" : "Preview Mode"}
+          {previewMode ? t('manager.editMode') : t('manager.previewMode')}
         </button>
         <button
           onClick={saveQuiz}
           className="btn-success"
           disabled={quiz.length === 0}
         >
-          Save Changes
+          {t('manager.saveChanges')}
         </button>
       </div>
       {quiz.length > 0 && (
         <div className="space-y-6">
-          <h3 className="text-xl font-semibold">{previewMode ? "Preview Quiz" : "Review & Edit Quiz"}</h3>
+          <h3 className="text-xl font-semibold">{previewMode ? t('manager.previewQuiz') : t('manager.reviewEditQuiz')}</h3>
           {quiz.map((q, idx) => (
             <div key={idx} className="rounded-2xl border bg-white p-4 shadow-sm">
               <div className="mb-2 flex items-center justify-between">
-                <h4 className="text-lg font-medium">Question {idx + 1}</h4>
+                <h4 className="text-lg font-medium">{t('manager.question')} {idx + 1}</h4>
                 <span className="pill">{q.type}</span>
               </div>
-              <p className="mb-1 text-slate-700 font-semibold">{previewMode ? q.question : "Question:"}</p>
+              <p className="mb-1 text-slate-700 font-semibold">{previewMode ? q.question : t('manager.questionLabel')}</p>
               {!previewMode ? (
                 <input
                   className="input mb-2"
@@ -1011,7 +1026,7 @@ const AssignTraining = () => {
               )}
               {q.options && Array.isArray(q.options) && q.options.length > 0 && (
                 <div className="mb-2">
-                  <p className="mb-1 text-sm font-medium text-slate-600">Options:</p>
+                  <p className="mb-1 text-sm font-medium text-slate-600">{t('quiz.options')}:</p>
                   {q.options.map((opt, i) => (
                     previewMode ? (
                       <p key={i} className="ml-2 text-slate-700">- {opt}</p>
@@ -1030,14 +1045,14 @@ const AssignTraining = () => {
                   ))}
                 </div>
               )}
-              <label className="mb-1 block text-sm font-medium text-slate-600">Answer:</label>
+              <label className="mb-1 block text-sm font-medium text-slate-600">{t('quiz.answer')}:</label>
               {previewMode ? (
                 <p className="text-slate-800">{q.answer}</p>
               ) : (
                 <input
                   className="input mb-2"
                   value={q.answer}
-                  placeholder="Correct answer"
+                  placeholder={t('manager.correctAnswer')}
                   onChange={(e) => handleChange(idx, "answer", e.target.value)}
                 />
               )}
@@ -1054,6 +1069,7 @@ const Login = ({ onLogin }) => {
   const [role, setRole] = useState("employee");
   const [userId, setUserId] = useState("");
   const navigate = useNavigate();
+  const { t } = useTranslation();
 
   const submit = (e) => {
     e.preventDefault();
@@ -1078,30 +1094,30 @@ const Login = ({ onLogin }) => {
   return (
     <div className="min-h-[60vh] grid place-items-center">
       <div className="card w-full max-w-md">
-        <h2 className="mb-4 text-xl font-semibold">Sign in</h2>
+        <h2 className="mb-4 text-xl font-semibold">{t('login.title')}</h2>
         <form className="space-y-3" onSubmit={submit}>
           <div>
-            <label className="mb-1 block text-sm text-slate-600">Name</label>
-            <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="Your name" />
+            <label className="mb-1 block text-sm text-slate-600">{t('login.name')}</label>
+            <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder={t('login.namePlaceholder')} />
           </div>
           <div>
-            <label className="mb-1 block text-sm text-slate-600">Role</label>
+            <label className="mb-1 block text-sm text-slate-600">{t('login.role')}</label>
             <select className="input" value={role} onChange={(e) => setRole(e.target.value)}>
-              <option value="employee">Employee</option>
-              <option value="manager">Manager</option>
+              <option value="employee">{t('header.employee')}</option>
+              <option value="manager">{t('header.manager')}</option>
             </select>
           </div>
           <div>
-            <label className="mb-1 block text-sm text-slate-600">User ID</label>
-            <input className="input" value={userId} onChange={(e) => setUserId(e.target.value)} placeholder="Paste your user ID" />
-            <p className="mt-1 text-xs text-slate-500">Use your assigned ID. For a quick demo, use the buttons below.</p>
+            <label className="mb-1 block text-sm text-slate-600">{t('login.userId')}</label>
+            <input className="input" value={userId} onChange={(e) => setUserId(e.target.value)} placeholder={t('login.userIdPlaceholder')} />
+            <p className="mt-1 text-xs text-slate-500">{t('login.userIdHelp')}</p>
           </div>
           <div className="flex gap-2">
-            <button type="button" onClick={fillDemoEmployee} className="btn-secondary">Demo Employee</button>
-            <button type="button" onClick={fillDemoManager} className="btn-warning">Demo Manager</button>
+            <button type="button" onClick={fillDemoEmployee} className="btn-secondary">{t('login.demoEmployee')}</button>
+            <button type="button" onClick={fillDemoManager} className="btn-warning">{t('login.demoManager')}</button>
           </div>
           <div className="pt-2">
-            <button type="submit" className="btn-primary w-full">Continue</button>
+            <button type="submit" className="btn-primary w-full">{t('login.continue')}</button>
           </div>
         </form>
       </div>
