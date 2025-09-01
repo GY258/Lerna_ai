@@ -19,6 +19,8 @@ export const en = {
     userIdHelp: "Use your assigned ID. For a quick demo, use the buttons below.",
     demoEmployee: "Demo Employee",
     demoManager: "Demo Manager",
+    demoHeadChef: "Demo Head Chef",
+    demoHeadManager: "Demo Head Manager",
     continue: "Continue"
   },
 

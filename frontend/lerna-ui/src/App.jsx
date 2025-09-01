@@ -1091,6 +1091,18 @@ const Login = ({ onLogin }) => {
     setUserId("manager-1");
   };
 
+  const fillDemoHeadChef = () => {
+    setName("Chef Sarah");
+    setRole("employee");
+    setUserId("head-chef-001");
+  };
+
+  const fillDemoHeadManager = () => {
+    setName("Director Mike");
+    setRole("manager");
+    setUserId("head-manager-001");
+  };
+
   return (
     <div className="min-h-[60vh] grid place-items-center">
       <div className="card w-full max-w-md">
@@ -1112,9 +1124,11 @@ const Login = ({ onLogin }) => {
             <input className="input" value={userId} onChange={(e) => setUserId(e.target.value)} placeholder={t('login.userIdPlaceholder')} />
             <p className="mt-1 text-xs text-slate-500">{t('login.userIdHelp')}</p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
             <button type="button" onClick={fillDemoEmployee} className="btn-secondary">{t('login.demoEmployee')}</button>
             <button type="button" onClick={fillDemoManager} className="btn-warning">{t('login.demoManager')}</button>
+            <button type="button" onClick={fillDemoHeadChef} className="btn-success">{t('login.demoHeadChef')}</button>
+            <button type="button" onClick={fillDemoHeadManager} className="btn-danger">{t('login.demoHeadManager')}</button>
           </div>
           <div className="pt-2">
             <button type="submit" className="btn-primary w-full">{t('login.continue')}</button>

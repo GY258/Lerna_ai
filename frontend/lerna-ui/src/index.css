@@ -60,6 +60,9 @@
   .btn-warning { background-color: rgb(245 158 11); color: white; }
   .btn-warning:hover { background-color: rgb(217 119 6); }
 
+  .btn-danger { background-color: rgb(220 38 38); color: white; }
+  .btn-danger:hover { background-color: rgb(185 28 28); }
+
   .input {
     width: 100%;
     border-radius: 0.75rem;

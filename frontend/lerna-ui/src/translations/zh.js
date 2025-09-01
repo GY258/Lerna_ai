@@ -19,6 +19,8 @@ export const zh = {
     userIdHelp: "使用您分配的ID。如需快速演示，请使用下面的按钮。",
     demoEmployee: "演示员工",
     demoManager: "演示经理",
+    demoHeadChef: "演示主厨长",
+    demoHeadManager: "演示总监",
     continue: "继续"
   },
 
