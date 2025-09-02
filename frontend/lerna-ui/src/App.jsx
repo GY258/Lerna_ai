@@ -854,6 +854,7 @@ const ProblemSolvingCaseStudy = ({ user }) => {
   const [casesLoading, setCasesLoading] = useState(true);
   const [problemSolvingCases, setProblemSolvingCases] = useState([]);
   const [casesError, setCasesError] = useState("");
+  const [currentCaseData, setCurrentCaseData] = useState(null); // Store current case for feedback
   const { t } = useTranslation();
 
   // Fetch skill dimensions and convert to case study scenarios
@@ -997,20 +998,25 @@ const ProblemSolvingCaseStudy = ({ user }) => {
         // Automatically display the case to the user
         const caseData = result.data[0];
         
+        // Store case data for feedback generation
+        const caseInfo = {
+          title: caseData.scenario_title || 'Case Study',
+          dimension: dimension,
+          role: caseData.role || user.role,
+          background: caseData.background || '',
+          problem: caseData.problem || '',
+          expectedActions: caseData.expected_actions || '',
+          evaluationCriteria: caseData.evaluation_criteria || ''
+        };
+        
+        setCurrentCaseData(caseInfo);
+        
         // Create a structured case presentation
         const casePresentation = {
           role: "assistant",
           content: "",
           isCase: true,
-          caseData: {
-            title: caseData.scenario_title || 'Case Study',
-            dimension: dimension,
-            role: caseData.role || user.role,
-            background: caseData.background || '',
-            problem: caseData.problem || '',
-            expectedActions: caseData.expected_actions || '',
-            evaluationCriteria: caseData.evaluation_criteria || ''
-          }
+          caseData: caseInfo
         };
         
         // Add the case directly to conversation
@@ -1040,6 +1046,7 @@ const ProblemSolvingCaseStudy = ({ user }) => {
     setShowFeedback(false);
     setProblemSolvingCases([]);
     setCasesError("");
+    setCurrentCaseData(null);
   };
 
   const requestFeedback = async () => {
@@ -1077,37 +1084,45 @@ const ProblemSolvingCaseStudy = ({ user }) => {
   };
 
   const sendMessage = async () => {
-    if (!userInput.trim() || isLoading) return;
+    if (!userInput.trim() || isLoading || !currentCaseData) return;
 
     const userMessage = { role: "user", content: userInput };
     setConversation(prev => [...prev, userMessage]);
+    const currentUserInput = userInput;
     setUserInput("");
     setIsLoading(true);
 
     try {
-      const response = await fetch('http://localhost:8000/ai-training/roleplay-chat', {
+      // Send to DeepSeek for feedback
+      const response = await fetch('http://localhost:8000/problem-solving/feedback', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          message: userInput,
-          user_role: user.role,
-          skill_dimension: cases.find(c => c.id === selectedCase)?.name || 'General Case Study',
-          conversation_history: conversation,
-          test_history: []
+          case_title: currentCaseData.title,
+          case_background: currentCaseData.background,
+          case_problem: currentCaseData.problem,
+          user_response: currentUserInput,
+          user_role: user.role === 'store_manager' ? '店长' : user.role,
+          skill_dimension: currentCaseData.dimension
         })
       });
 
       if (response.ok) {
         const data = await response.json();
-        const aiMessage = { role: "assistant", content: data.response };
-        setConversation(prev => [...prev, aiMessage]);
+        if (data.success) {
+          const aiMessage = { role: "assistant", content: data.feedback };
+          setConversation(prev => [...prev, aiMessage]);
+        } else {
+          const errorMessage = { role: "assistant", content: data.feedback || "抱歉，无法生成反馈。请稍后再试。" };
+          setConversation(prev => [...prev, errorMessage]);
+        }
       } else {
-        const errorMessage = { role: "assistant", content: "I'm sorry, I'm having trouble processing your response. Please try again." };
+        const errorMessage = { role: "assistant", content: "抱歉，连接出现问题。请检查网络连接后重试。" };
         setConversation(prev => [...prev, errorMessage]);
       }
     } catch (error) {
       console.error('Error:', error);
-      const errorMessage = { role: "assistant", content: "I'm sorry, there was a connection error. Please check your internet connection and try again." };
+      const errorMessage = { role: "assistant", content: "抱歉，网络连接出现问题。请检查您的网络连接后重试。" };
       setConversation(prev => [...prev, errorMessage]);
     } finally {
       setIsLoading(false);

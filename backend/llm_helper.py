@@ -1,10 +1,47 @@
 import requests
 import json
 from typing import List, Optional
+from .config import DEEPSEEK_API_URL, get_deepseek_api_key
 
-# DeepSeek AI API configuration
-DEEPSEEK_API_URL = "https://api.deepseek.com/v1/chat/completions"
-DEEPSEEK_API_KEY = "your-deepseek-api-key-here"  # Replace with actual API key
+def call_deepseek_api(prompt: str, max_tokens: int = 1000, temperature: float = 0.7) -> str:
+    """
+    Make an API call to DeepSeek
+    """
+    try:
+        api_key = get_deepseek_api_key()
+        
+        if api_key == "your-deepseek-api-key-here":
+            raise ValueError("DeepSeek API key not configured. Please set DEEPSEEK_API_KEY in your .env file.")
+        
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {api_key}"
+        }
+        
+        data = {
+            "model": "deepseek-chat",
+            "messages": [
+                {
+                    "role": "user",
+                    "content": prompt
+                }
+            ],
+            "max_tokens": max_tokens,
+            "temperature": temperature
+        }
+        
+        response = requests.post(DEEPSEEK_API_URL, headers=headers, json=data, timeout=30)
+        response.raise_for_status()
+        
+        result = response.json()
+        return result["choices"][0]["message"]["content"].strip()
+        
+    except requests.exceptions.RequestException as e:
+        raise Exception(f"DeepSeek API request failed: {str(e)}")
+    except KeyError as e:
+        raise Exception(f"Unexpected response format from DeepSeek API: {str(e)}")
+    except Exception as e:
+        raise Exception(f"Error calling DeepSeek API: {str(e)}")
 
 def generate_roleplay_chat_response(
     user_message: str,
@@ -40,17 +77,19 @@ def generate_roleplay_chat_response(
 回复：
 """
 
-        # For now, return a simple response since we don't have the actual API key
-        # In a real implementation, this would call the DeepSeek API
-        if "food safety" in topic.lower() or "食品安全" in user_message:
+        # Call DeepSeek API
+        return call_deepseek_api(prompt, max_tokens=800, temperature=0.7)
+
+    except Exception as e:
+        # Fallback to simple responses if API fails
+        if "API key not configured" in str(e):
+            return f"API配置错误：{str(e)}"
+        elif "food safety" in topic.lower() or "食品安全" in user_message:
             return "好的，让我们来测试你的食品安全处理技能。请描述一下，如果发现厨房里有食材变质的情况，你会如何处理？"
         elif "customer service" in topic.lower() or "客户服务" in user_message:
             return "很好！让我们测试你的客户服务技能。请告诉我，如果遇到一位对菜品不满意的顾客，你会如何应对？"
         else:
-            return f"欢迎来到{topic}技能测试！请告诉我你想要测试的具体方面，我会为你提供相应的测试场景和指导。"
-
-    except Exception as e:
-        return f"抱歉，我遇到了一些问题：{str(e)}。请稍后再试。"
+            return f"抱歉，我遇到了一些问题：{str(e)}。请稍后再试。"
 
 def generate_roleplay_scenario_feedback(
     scenario: str,
@@ -75,14 +114,8 @@ def generate_roleplay_scenario_feedback(
 用中文回复，每部分用2-3句话。
 """
 
-        # Simple feedback response
-        return f"""
-**优点认可：** 你的回应显示了良好的问题意识，能够识别场景中的关键问题。
-
-**改进建议：** 可以更详细地描述具体的处理步骤，并考虑更多的细节情况。
-
-**具体行动建议：** 建议在实际工作中多练习类似场景，并记录处理经验以便改进。
-"""
+        # Call DeepSeek API for feedback
+        return call_deepseek_api(prompt, max_tokens=600, temperature=0.6)
 
     except Exception as e:
         return f"抱歉，评估过程中遇到问题：{str(e)}"
@@ -135,10 +168,64 @@ def generate_ai_tutor_response(
 用中文回复，保持专业和鼓励的语调。
 """
 
-        return f"关于你的问题'{user_question}'，我建议你从{topic}的基础知识开始，然后逐步深入。建议多进行实践练习，这样能更好地掌握相关技能。"
+        # Call DeepSeek API for tutor response
+        return call_deepseek_api(prompt, max_tokens=600, temperature=0.7)
 
     except Exception as e:
         return f"抱歉，我无法回答这个问题：{str(e)}"
+
+def generate_problem_solving_feedback(
+    case_title: str,
+    case_background: str,
+    case_problem: str,
+    user_response: str,
+    user_role: str,
+    skill_dimension: str
+) -> str:
+    """
+    Generate feedback for problem-solving case study responses using DeepSeek
+    """
+    try:
+        prompt = f"""
+你是一个专业的餐厅管理培训专家，专门评估{user_role}在{skill_dimension}方面的问题解决能力。
+
+案例信息：
+标题：{case_title}
+背景：{case_background}
+问题：{case_problem}
+
+用户分析：{user_response}
+
+请对用户的分析提供专业反馈，包括：
+
+1. **分析质量评估**（30%）
+   - 问题识别是否准确
+   - 原因分析是否深入
+   - 考虑因素是否全面
+
+2. **解决方案评估**（40%）
+   - 建议的可操作性
+   - 解决方案的合理性
+   - 是否考虑了实际约束
+
+3. **专业性评估**（20%）
+   - 是否体现了{user_role}应有的专业水平
+   - 是否运用了{skill_dimension}的专业知识
+   - 决策思路是否清晰
+
+4. **改进建议**（10%）
+   - 具体的改进方向
+   - 可以加强的方面
+   - 进一步学习建议
+
+请用中文回复，语调专业但鼓励，每个部分2-3句话，总体反馈控制在200字以内。
+"""
+
+        # Call DeepSeek API for problem-solving feedback
+        return call_deepseek_api(prompt, max_tokens=800, temperature=0.6)
+
+    except Exception as e:
+        return f"抱歉，反馈生成过程中遇到问题：{str(e)}。请稍后再试。"
 
 def generate_quiz_from_sop(sop_text: str) -> List[dict]:
     """

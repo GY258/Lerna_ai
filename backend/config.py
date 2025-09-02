@@ -4,6 +4,10 @@ Configuration file for Lerna AI backend
 
 import os
 from typing import Optional
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 # DeepSeek AI API configuration
 DEEPSEEK_API_URL = "https://api.deepseek.com/v1/chat/completions"
