@@ -1,7 +1,78 @@
 import requests
 import json
+import re
 from typing import List, Optional
 from .config import DEEPSEEK_API_URL, get_deepseek_api_key
+
+def extract_and_validate_json(response_text: str) -> str:
+    """
+    Extract and validate JSON from LLM response, handling common formatting issues
+    """
+    try:
+        # Remove common prefixes and suffixes that LLMs sometimes add
+        cleaned_text = response_text.strip()
+        
+        # Remove various prefixes
+        cleaned_text = re.sub(r'^["\s]*json["\s]*', '', cleaned_text, flags=re.IGNORECASE)
+        cleaned_text = re.sub(r'^```json\s*', '', cleaned_text, flags=re.IGNORECASE)
+        cleaned_text = re.sub(r'^json\s*', '', cleaned_text, flags=re.IGNORECASE)
+        cleaned_text = re.sub(r'\s*```\s*$', '', cleaned_text)
+        
+        # Find JSON content between braces (greedy match to get complete JSON)
+        json_match = re.search(r'\{.*\}', cleaned_text, re.DOTALL)
+        if json_match:
+            json_str = json_match.group(0)
+        else:
+            # If no braces found, use the cleaned text
+            json_str = cleaned_text.strip()
+        
+        # Try to parse the JSON to validate it
+        parsed = json.loads(json_str)
+        
+        # Validate required fields
+        required_fields = ['overall_evaluation', 'analysis_feedback', 'solution_feedback', 
+                         'professionalism_feedback', 'improvement_suggestions', 'scores', 'pass']
+        
+        missing_fields = [field for field in required_fields if field not in parsed]
+        if missing_fields:
+            raise ValueError(f"Missing required fields: {missing_fields}")
+        
+        # Validate scores structure
+        if 'scores' in parsed and isinstance(parsed['scores'], dict):
+            score_fields = ['analysis', 'solution', 'professionalism', 'improvement', 'weighted_total']
+            for field in score_fields:
+                if field not in parsed['scores']:
+                    parsed['scores'][field] = 0
+        
+        # Ensure redlines and assumptions are arrays
+        if 'redlines' not in parsed or not isinstance(parsed['redlines'], list):
+            parsed['redlines'] = []
+        if 'assumptions' not in parsed or not isinstance(parsed['assumptions'], list):
+            parsed['assumptions'] = []
+        
+        # Return the cleaned and validated JSON
+        return json.dumps(parsed, ensure_ascii=False, indent=2)
+        
+    except (json.JSONDecodeError, ValueError) as e:
+        # If JSON parsing fails, return a fallback structured response
+        fallback_response = {
+            "overall_evaluation": "系统解析反馈时出现问题，请重新尝试",
+            "analysis_feedback": "无法解析分析反馈，请重新生成",
+            "solution_feedback": "无法解析解决方案反馈，请重新生成", 
+            "professionalism_feedback": "无法解析专业性反馈，请重新生成",
+            "improvement_suggestions": "建议重新提交分析以获得准确反馈",
+            "scores": {
+                "analysis": 0,
+                "solution": 0,
+                "professionalism": 0,
+                "improvement": 0,
+                "weighted_total": 0
+            },
+            "pass": False,
+            "redlines": [f"JSON解析错误: {str(e)}"],
+            "assumptions": ["由于解析错误，无法提供准确评估"]
+        }
+        return json.dumps(fallback_response, ensure_ascii=False, indent=2)
 
 def call_deepseek_api(prompt: str, max_tokens: int = 1000, temperature: float = 0.7) -> str:
     """
@@ -173,7 +244,6 @@ def generate_ai_tutor_response(
 
     except Exception as e:
         return f"抱歉，我无法回答这个问题：{str(e)}"
-
 def generate_problem_solving_feedback(
     case_title: str,
     case_background: str,
@@ -184,48 +254,83 @@ def generate_problem_solving_feedback(
 ) -> str:
     """
     Generate feedback for problem-solving case study responses using DeepSeek
+    - Structured JSON output
+    - Weights & rubric aligned with Laicai SOP & safety standards
+    - Redline penalties; pass threshold
     """
     try:
+        # Debug: Print user response details
+        print(f"[DEBUG] Received user_response: '{user_response}'")
+        print(f"[DEBUG] Length: {len(user_response)} characters")
+        print(f"[DEBUG] Is empty or whitespace: {not user_response.strip()}")
+        
         prompt = f"""
-你是一个专业的餐厅管理培训专家，专门评估{user_role}在{skill_dimension}方面的问题解决能力。
+你是一名面向“来菜”连锁餐厅的资深培训考官与质量教练。请基于公司强调的：
+- 标准化与SOP/SOC执行（出品一致、操作卡、时间/火候/配比）
+- 食安与安全（消防/燃气/用电/高压锅、温控、交叉污染、留样）
+- 成本与产能（损耗、油量与用料、出菜时长、峰值产能）
+- 供应链协同（缺料应急、替代方案、前厅联动）
+- 数据与复盘（记录、复盘闭环、培训跟进）
 
-案例信息：
-标题：{case_title}
-背景：{case_background}
-问题：{case_problem}
+对员工“问题解决类”作答进行评估。务必客观、克制臆断；如信息不足，请先显式提出“合理假设”。
 
-用户分析：{user_response}
+【案例信息】
+- 标题：{case_title}
+- 背景：{case_background}
+- 问题：{case_problem}
 
-请对用户的分析提供专业反馈，包括：
+【作答角色/能力维度】
+- 角色：{user_role}
+- 能力维度：{skill_dimension}
 
-1. **分析质量评估**（30%）
-   - 问题识别是否准确
-   - 原因分析是否深入
-   - 考虑因素是否全面
+【员工作答】
+{user_response}
 
-2. **解决方案评估**（40%）
-   - 建议的可操作性
-   - 解决方案的合理性
-   - 是否考虑了实际约束
+【评估要求】
+1) 采用如下权重与评分（每项1-5分，支持小数）：
+   - 分析质量（30%）：问题识别是否准确；原因分析是否深入；考虑因素是否覆盖SOP/安全/成本/供给。
+   - 解决方案（40%）：行动可执行性；资源与约束匹配度（人/锅/时段/备料）；风险控制与优先级。
+   - 专业性（20%）：是否体现“{user_role}”应有专业深度；是否正确运用“{skill_dimension}”方法与术语；思路清晰。
+   - 改进建议（10%）：具体、可落地、可度量（含培训/记录/复盘）。
+2) 红线扣分（任一触发则总分≤2.0，并在redlines中列出）：
+   - 违背安全底线（如油锅用水扑救、燃气未关、带病设备继续用、高压锅隐患不停用）
+   - 重大食安风险（温控/生熟不分/交叉污染/留样缺失）
+   - 严重背离SOP导致出品或顾客安全风险
+3) 通过线：总评≥3.5为"通过"，<3.5为"需改进"。
+4) 语气专业且鼓励；总字数≤200字；每个部分2-3句。
+5) **重要**：仅输出有效的JSON格式，不要添加任何前缀文字、说明或代码块标记。直接从大括号开始输出。
 
-3. **专业性评估**（20%）
-   - 是否体现了{user_role}应有的专业水平
-   - 是否运用了{skill_dimension}的专业知识
-   - 决策思路是否清晰
+【JSON输出字段与示例】
+{{
+  "overall_evaluation": "整体结论（≤40字）",
+  "analysis_feedback": "针对分析质量的点评（2-3句）",
+  "solution_feedback": "针对解决方案的点评（2-3句）",
+  "professionalism_feedback": "针对专业性的点评（2-3句）",
+  "improvement_suggestions": "针对改进的具体建议（2-3句）",
+  "scores": {{
+    "analysis": 0-5,
+    "solution": 0-5,
+    "professionalism": 0-5,
+    "improvement": 0-5,
+    "weighted_total": 0-5
+  }},
+  "pass": true/false,
+  "redlines": ["若无则空数组"],
+  "assumptions": ["若无则空数组"]
+}}
 
-4. **改进建议**（10%）
-   - 具体的改进方向
-   - 可以加强的方面
-   - 进一步学习建议
-
-请用中文回复，语调专业但鼓励，每个部分2-3句话，总体反馈控制在200字以内。
+请严格按照以上格式输出JSON，不要添加任何解释文字或标记。
 """
-
-        # Call DeepSeek API for problem-solving feedback
-        return call_deepseek_api(prompt, max_tokens=800, temperature=0.6)
-
+        # Get the raw response from DeepSeek
+        raw_response = call_deepseek_api(prompt, max_tokens=800, temperature=0.4)
+        
+        # Clean and extract JSON from the response
+        cleaned_json = extract_and_validate_json(raw_response)
+        return cleaned_json
+        
     except Exception as e:
         return f"抱歉，反馈生成过程中遇到问题：{str(e)}。请稍后再试。"
+
 
 def generate_quiz_from_sop(sop_text: str) -> List[dict]:
     """

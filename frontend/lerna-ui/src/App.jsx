@@ -2,11 +2,208 @@
 // Assumes FastAPI running at http://localhost:8000
 
 import React, { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { BrowserRouter as Router, Route, Routes, Navigate, useNavigate, useParams, Link } from "react-router-dom";
 import { LanguageProvider, useLanguage } from './contexts/LanguageContext';
 import { useTranslation } from './hooks/useTranslation';
 import LanguageSwitcher from './components/LanguageSwitcher';
 import './App.css';
+
+// Enhanced Feedback Display Component
+const StructuredFeedbackDisplay = ({ feedbackData, onClose }) => {
+  console.log('StructuredFeedbackDisplay received feedbackData:', feedbackData);
+  
+  if (!feedbackData) {
+    console.log('No feedbackData provided to StructuredFeedbackDisplay');
+    return null;
+  }
+  const getScoreColor = (score) => {
+    if (score >= 4) return 'text-green-600 bg-green-50 border-green-200';
+    if (score >= 3) return 'text-yellow-600 bg-yellow-50 border-yellow-200';
+    return 'text-red-600 bg-red-50 border-red-200';
+  };
+
+  const getScoreBarColor = (score) => {
+    if (score >= 4) return 'bg-green-500';
+    if (score >= 3) return 'bg-yellow-500';
+    return 'bg-red-500';
+  };
+
+  const getPassFailBadge = (pass) => {
+    return pass ? (
+      <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
+        ✓ 通过 (Pass)
+      </span>
+    ) : (
+      <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-red-100 text-red-800">
+        ✗ 需改进 (Needs Improvement)
+      </span>
+    );
+  };
+
+  const modalContent = (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4" style={{ zIndex: 9999 }}>
+      <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+        <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 rounded-t-2xl">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-xl font-bold text-gray-900">详细评估反馈</h3>
+              <p className="text-sm text-gray-500 mt-1">专业能力评估结果</p>
+            </div>
+            <div className="flex items-center gap-3">
+              {getPassFailBadge(feedbackData.pass)}
+              <button
+                onClick={onClose}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div className="p-6 space-y-6">
+          {/* Overall Evaluation */}
+          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-6 border border-blue-200">
+            <h4 className="text-lg font-semibold text-blue-900 mb-2">整体评价</h4>
+            <p className="text-blue-800 text-lg leading-relaxed">{feedbackData.overall_evaluation || '无评价信息'}</p>
+            <div className="mt-4 flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium text-blue-700">总评分:</span>
+                <div className={`px-3 py-1 rounded-full border ${getScoreColor(feedbackData.scores?.weighted_total || 0)}`}>
+                  <span className="font-bold">{feedbackData.scores?.weighted_total || 0}/5</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Scores Section */}
+          <div className="bg-white rounded-xl border border-gray-200 p-6">
+            <h4 className="text-lg font-semibold text-gray-900 mb-4">评分详情</h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {[
+                { key: 'analysis', label: '分析质量', score: feedbackData.scores.analysis },
+                { key: 'solution', label: '解决方案', score: feedbackData.scores.solution },
+                { key: 'professionalism', label: '专业表现', score: feedbackData.scores.professionalism },
+                { key: 'improvement', label: '改进建议', score: feedbackData.scores.improvement }
+              ].map(({ key, label, score }) => (
+                <div key={key} className="space-y-2">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm font-medium text-gray-700">{label}</span>
+                    <span className={`px-2 py-1 rounded text-sm font-semibold ${getScoreColor(score)}`}>
+                      {score}/5
+                    </span>
+                  </div>
+                  <div className="w-full bg-gray-200 rounded-full h-2">
+                    <div
+                      className={`h-2 rounded-full transition-all duration-500 ${getScoreBarColor(score)}`}
+                      style={{ width: `${(score / 5) * 100}%` }}
+                    ></div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Feedback Sections */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Analysis Feedback */}
+            <div className="bg-blue-50 rounded-xl p-5 border border-blue-200">
+              <h5 className="font-semibold text-blue-900 mb-2 flex items-center">
+                <span className="w-2 h-2 bg-blue-500 rounded-full mr-2"></span>
+                分析质量反馈
+              </h5>
+              <p className="text-blue-800 leading-relaxed">{feedbackData.analysis_feedback}</p>
+            </div>
+
+            {/* Solution Feedback */}
+            <div className="bg-green-50 rounded-xl p-5 border border-green-200">
+              <h5 className="font-semibold text-green-900 mb-2 flex items-center">
+                <span className="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
+                解决方案反馈
+              </h5>
+              <p className="text-green-800 leading-relaxed">{feedbackData.solution_feedback}</p>
+            </div>
+
+            {/* Professionalism Feedback */}
+            <div className="bg-purple-50 rounded-xl p-5 border border-purple-200">
+              <h5 className="font-semibold text-purple-900 mb-2 flex items-center">
+                <span className="w-2 h-2 bg-purple-500 rounded-full mr-2"></span>
+                专业性反馈
+              </h5>
+              <p className="text-purple-800 leading-relaxed">{feedbackData.professionalism_feedback}</p>
+            </div>
+
+            {/* Improvement Suggestions */}
+            <div className="bg-orange-50 rounded-xl p-5 border border-orange-200">
+              <h5 className="font-semibold text-orange-900 mb-2 flex items-center">
+                <span className="w-2 h-2 bg-orange-500 rounded-full mr-2"></span>
+                改进建议
+              </h5>
+              <p className="text-orange-800 leading-relaxed">{feedbackData.improvement_suggestions}</p>
+            </div>
+          </div>
+
+          {/* Redlines and Assumptions */}
+          {(feedbackData.redlines?.length > 0 || feedbackData.assumptions?.length > 0) && (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Redlines */}
+              {feedbackData.redlines?.length > 0 && (
+                <div className="bg-red-50 rounded-xl p-5 border border-red-200">
+                  <h5 className="font-semibold text-red-900 mb-3 flex items-center">
+                    <span className="w-2 h-2 bg-red-500 rounded-full mr-2"></span>
+                    ⚠️ 安全红线问题
+                  </h5>
+                  <ul className="space-y-1">
+                    {feedbackData.redlines.map((redline, index) => (
+                      <li key={index} className="text-red-800 text-sm flex items-start">
+                        <span className="text-red-500 mr-2 mt-0.5">•</span>
+                        {redline}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* Assumptions */}
+              {feedbackData.assumptions?.length > 0 && (
+                <div className="bg-gray-50 rounded-xl p-5 border border-gray-200">
+                  <h5 className="font-semibold text-gray-900 mb-3 flex items-center">
+                    <span className="w-2 h-2 bg-gray-500 rounded-full mr-2"></span>
+                    💭 评估假设
+                  </h5>
+                  <ul className="space-y-1">
+                    {feedbackData.assumptions.map((assumption, index) => (
+                      <li key={index} className="text-gray-700 text-sm flex items-start">
+                        <span className="text-gray-400 mr-2 mt-0.5">•</span>
+                        {assumption}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        <div className="sticky bottom-0 bg-gray-50 border-t border-gray-200 px-6 py-4 rounded-b-2xl">
+          <div className="flex justify-end">
+            <button
+              onClick={onClose}
+              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+            >
+              关闭反馈
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  return createPortal(modalContent, document.body);
+};
 
 const mockUser = {
   name: "John",
@@ -474,8 +671,9 @@ const AIRolePlayTraining = ({ user }) => {
   const [userInput, setUserInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [selectedScenario, setSelectedScenario] = useState("");
-  const [feedback, setFeedback] = useState("");
+  const [feedback, setFeedback] = useState(null);
   const [showFeedback, setShowFeedback] = useState(false);
+  const [showStructuredFeedback, setShowStructuredFeedback] = useState(false);
   const [scenarios, setScenarios] = useState([]);
   const [scenariosLoading, setScenariosLoading] = useState(true);
   const { t } = useTranslation();
@@ -590,8 +788,9 @@ const AIRolePlayTraining = ({ user }) => {
     setConversation([]);
     setUserInput("");
     setSelectedScenario("");
-    setFeedback("");
+    setFeedback(null);
     setShowFeedback(false);
+    setShowStructuredFeedback(false);
   };
 
   const requestFeedback = async () => {
@@ -613,15 +812,29 @@ const AIRolePlayTraining = ({ user }) => {
 
       if (response.ok) {
         const data = await response.json();
-        setFeedback(data.feedback || data.response || "Great job! Keep practicing to improve your skills.");
-        setShowFeedback(true);
+        let feedbackText = data.feedback || data.response || "Great job! Keep practicing to improve your skills.";
+        
+        // Try to parse feedback as JSON for structured display
+        try {
+          const parsedFeedback = JSON.parse(feedbackText);
+          if (parsedFeedback.overall_evaluation && parsedFeedback.scores) {
+            setFeedback({ type: 'structured', data: parsedFeedback });
+            setShowStructuredFeedback(true);
+          } else {
+            setFeedback({ type: 'text', data: feedbackText });
+            setShowFeedback(true);
+          }
+        } catch (e) {
+          setFeedback({ type: 'text', data: feedbackText });
+          setShowFeedback(true);
+        }
       } else {
-        setFeedback("抱歉，无法获取反馈。请稍后再试。");
+        setFeedback({ type: 'text', data: "抱歉，无法获取反馈。请稍后再试。" });
         setShowFeedback(true);
       }
     } catch (error) {
       console.error('Error:', error);
-      setFeedback("抱歉，连接出现问题。请检查网络连接后重试。");
+      setFeedback({ type: 'text', data: "抱歉，连接出现问题。请检查网络连接后重试。" });
       setShowFeedback(true);
     } finally {
       setIsLoading(false);
@@ -738,8 +951,11 @@ const AIRolePlayTraining = ({ user }) => {
               <button
                 onClick={requestFeedback}
                 disabled={conversation.length === 0 || isLoading}
-                className="btn-secondary text-sm"
+                className="px-4 py-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg hover:from-blue-600 hover:to-blue-700 transition-all duration-200 font-medium text-sm shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
               >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+                </svg>
                 {t('aiRoleplay.getFeedback')}
               </button>
               <button
@@ -818,8 +1034,16 @@ const AIRolePlayTraining = ({ user }) => {
         </div>
       )}
 
-      {/* Feedback Section */}
-      {showFeedback && (
+      {/* Structured Feedback Modal */}
+      {showStructuredFeedback && feedback?.type === 'structured' && (
+        <StructuredFeedbackDisplay
+          feedbackData={feedback.data}
+          onClose={() => setShowStructuredFeedback(false)}
+        />
+      )}
+
+      {/* Regular Feedback Section */}
+      {showFeedback && feedback?.type === 'text' && (
         <div className="card">
           <div className="flex items-center justify-between mb-4">
             <h4 className="font-medium text-slate-900">{t('aiRoleplay.trainingFeedback')}</h4>
@@ -832,7 +1056,7 @@ const AIRolePlayTraining = ({ user }) => {
           </div>
           <div className="bg-slate-50 rounded-lg p-4">
             <div className="prose prose-sm max-w-none">
-              {feedback.split('\n').map((line, index) => (
+              {feedback.data.split('\n').map((line, index) => (
                 <p key={index} className="mb-2">{line}</p>
               ))}
             </div>
@@ -848,8 +1072,9 @@ const ProblemSolvingCaseStudy = ({ user }) => {
   const [userInput, setUserInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [selectedCase, setSelectedCase] = useState("");
-  const [feedback, setFeedback] = useState("");
+  const [feedback, setFeedback] = useState(null);
   const [showFeedback, setShowFeedback] = useState(false);
+  const [showStructuredFeedback, setShowStructuredFeedback] = useState(false);
   const [cases, setCases] = useState([]);
   const [casesLoading, setCasesLoading] = useState(true);
   const [problemSolvingCases, setProblemSolvingCases] = useState([]);
@@ -1042,41 +1267,100 @@ const ProblemSolvingCaseStudy = ({ user }) => {
     setConversation([]);
     setUserInput("");
     setSelectedCase("");
-    setFeedback("");
+    setFeedback(null);
     setShowFeedback(false);
+    setShowStructuredFeedback(false);
     setProblemSolvingCases([]);
     setCasesError("");
     setCurrentCaseData(null);
   };
 
   const requestFeedback = async () => {
-    if (conversation.length === 0) return;
+    if (conversation.length === 0 || !currentCaseData) return;
     
     setIsLoading(true);
     try {
-      const response = await fetch('http://localhost:8000/ai-training/roleplay-feedback', {
+      // Get the user's full response from conversation
+      const userResponses = conversation
+        .filter(msg => msg.role === 'user')
+        .map(msg => msg.content)
+        .join('\n\n');
+
+      const response = await fetch('http://localhost:8000/problem-solving/feedback', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          scenario_id: selectedCase,
-          scenario_name: cases.find(c => c.id === selectedCase)?.name || 'Unknown Case',
-          user_response: conversation.map(msg => `${msg.role}: ${msg.content}`).join('\n'),
-          user_role: user.role,
-          scenario_history: []
+          case_title: currentCaseData.title,
+          case_background: currentCaseData.background,
+          case_problem: currentCaseData.problem,
+          user_response: userResponses,
+          user_role: user.role === 'store_manager' ? '店长' : user.role,
+          skill_dimension: currentCaseData.dimension
         })
       });
 
       if (response.ok) {
         const data = await response.json();
-        setFeedback(data.feedback || data.response || "Excellent problem-solving approach! Your analysis shows strong critical thinking skills.");
-        setShowFeedback(true);
+        if (data.success) {
+          // Try to parse feedback as JSON for structured display
+          let parsedFeedback;
+          try {
+            parsedFeedback = JSON.parse(data.feedback);
+            // Check if it has the expected structured format
+            if (parsedFeedback.overall_evaluation && parsedFeedback.scores) {
+              // Simple display: show as formatted text
+              const formattedFeedback = `
+📊 详细评估反馈：
+
+🎯 整体评价：${parsedFeedback.overall_evaluation}
+
+📈 评分详情：
+• 分析质量：${parsedFeedback.scores.analysis}/5
+• 解决方案：${parsedFeedback.scores.solution}/5  
+• 专业表现：${parsedFeedback.scores.professionalism}/5
+• 改进建议：${parsedFeedback.scores.improvement}/5
+• 总评分：${parsedFeedback.scores.weighted_total}/5
+
+${parsedFeedback.pass ? '✅ 评估通过' : '❌ 需要改进'}
+
+💡 分析反馈：${parsedFeedback.analysis_feedback}
+
+🔧 解决方案反馈：${parsedFeedback.solution_feedback}
+
+👔 专业性反馈：${parsedFeedback.professionalism_feedback}
+
+📝 改进建议：${parsedFeedback.improvement_suggestions}
+
+${parsedFeedback.redlines && parsedFeedback.redlines.length > 0 ? 
+  `⚠️ 安全红线问题：\n${parsedFeedback.redlines.map(r => `• ${r}`).join('\n')}` : ''}
+
+${parsedFeedback.assumptions && parsedFeedback.assumptions.length > 0 ? 
+  `💭 评估假设：\n${parsedFeedback.assumptions.map(a => `• ${a}`).join('\n')}` : ''}
+              `;
+              
+              setFeedback({ type: 'text', data: formattedFeedback });
+              setShowFeedback(true);
+              setShowStructuredFeedback(false);
+            } else {
+              setFeedback({ type: 'text', data: data.feedback });
+              setShowFeedback(true);
+              setShowStructuredFeedback(false);
+            }
+          } catch (e) {
+            setFeedback({ type: 'text', data: data.feedback });
+            setShowFeedback(true);
+          }
+        } else {
+          setFeedback({ type: 'text', data: data.feedback || "抱歉，无法获取反馈。请稍后再试。" });
+          setShowFeedback(true);
+        }
       } else {
-        setFeedback("抱歉，无法获取反馈。请稍后再试。");
+        setFeedback({ type: 'text', data: "抱歉，连接出现问题。请检查网络连接后重试。" });
         setShowFeedback(true);
       }
     } catch (error) {
       console.error('Error:', error);
-      setFeedback("抱歉，连接出现问题。请检查网络连接后重试。");
+      setFeedback({ type: 'text', data: "抱歉，连接出现问题。请检查网络连接后重试。" });
       setShowFeedback(true);
     } finally {
       setIsLoading(false);
@@ -1093,6 +1377,16 @@ const ProblemSolvingCaseStudy = ({ user }) => {
     setIsLoading(true);
 
     try {
+      // Get all user responses from conversation
+      const allUserResponses = conversation
+        .filter(msg => msg.role === 'user')
+        .map(msg => msg.content)
+        .concat(currentUserInput) // Add the current input
+        .join('\n\n');
+      
+      console.log('Sending user responses:', allUserResponses);
+      console.log('Length:', allUserResponses.length);
+      
       // Send to DeepSeek for feedback
       const response = await fetch('http://localhost:8000/problem-solving/feedback', {
         method: 'POST',
@@ -1101,7 +1395,7 @@ const ProblemSolvingCaseStudy = ({ user }) => {
           case_title: currentCaseData.title,
           case_background: currentCaseData.background,
           case_problem: currentCaseData.problem,
-          user_response: currentUserInput,
+          user_response: allUserResponses,
           user_role: user.role === 'store_manager' ? '店长' : user.role,
           skill_dimension: currentCaseData.dimension
         })
@@ -1110,8 +1404,54 @@ const ProblemSolvingCaseStudy = ({ user }) => {
       if (response.ok) {
         const data = await response.json();
         if (data.success) {
-          const aiMessage = { role: "assistant", content: data.feedback };
-          setConversation(prev => [...prev, aiMessage]);
+          // Always display structured feedback as modal for immediate responses
+          let parsedFeedback;
+          try {
+            parsedFeedback = JSON.parse(data.feedback);
+            // Check if it has the expected structured format
+            if (parsedFeedback.overall_evaluation && parsedFeedback.scores) {
+              // Simple display: just add formatted text to conversation
+              const formattedFeedback = `
+📊 评估结果：
+
+🎯 整体评价：${parsedFeedback.overall_evaluation}
+
+📈 评分详情：
+• 分析质量：${parsedFeedback.scores.analysis}/5
+• 解决方案：${parsedFeedback.scores.solution}/5  
+• 专业表现：${parsedFeedback.scores.professionalism}/5
+• 改进建议：${parsedFeedback.scores.improvement}/5
+• 总评分：${parsedFeedback.scores.weighted_total}/5
+
+${parsedFeedback.pass ? '✅ 评估通过' : '❌ 需要改进'}
+
+💡 分析反馈：${parsedFeedback.analysis_feedback}
+
+🔧 解决方案反馈：${parsedFeedback.solution_feedback}
+
+👔 专业性反馈：${parsedFeedback.professionalism_feedback}
+
+📝 改进建议：${parsedFeedback.improvement_suggestions}
+
+${parsedFeedback.redlines && parsedFeedback.redlines.length > 0 ? 
+  `⚠️ 安全红线问题：\n${parsedFeedback.redlines.map(r => `• ${r}`).join('\n')}` : ''}
+
+${parsedFeedback.assumptions && parsedFeedback.assumptions.length > 0 ? 
+  `💭 评估假设：\n${parsedFeedback.assumptions.map(a => `• ${a}`).join('\n')}` : ''}
+              `;
+              
+              const aiMessage = { role: "assistant", content: formattedFeedback };
+              setConversation(prev => [...prev, aiMessage]);
+            } else {
+              // If not structured, display as regular AI message
+              const aiMessage = { role: "assistant", content: data.feedback };
+              setConversation(prev => [...prev, aiMessage]);
+            }
+          } catch (e) {
+            // If not valid JSON, display as regular AI message
+            const aiMessage = { role: "assistant", content: data.feedback };
+            setConversation(prev => [...prev, aiMessage]);
+          }
         } else {
           const errorMessage = { role: "assistant", content: data.feedback || "抱歉，无法生成反馈。请稍后再试。" };
           setConversation(prev => [...prev, errorMessage]);
@@ -1205,9 +1545,12 @@ const ProblemSolvingCaseStudy = ({ user }) => {
               <button
                 onClick={requestFeedback}
                 disabled={conversation.length === 0 || isLoading}
-                className="btn-secondary text-sm"
+                className="px-4 py-2 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg hover:from-green-600 hover:to-green-700 transition-all duration-200 font-medium text-sm shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
               >
-                Get Analysis Feedback
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                获取详细评估
               </button>
               <button
                 onClick={startNewCase}
@@ -1242,7 +1585,7 @@ const ProblemSolvingCaseStudy = ({ user }) => {
               >
                 {msg.isCase ? (
                   /* Special formatting for case studies */
-                  <div className="w-full max-w-4xl bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-6 shadow-sm">
+                  <div className="w-full max-w-4xl bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-6 shadow-lg backdrop-blur-sm">
                     {/* Case Header */}
                     <div className="border-b border-blue-200 pb-4 mb-4">
                       <div className="flex items-center justify-between">
@@ -1306,7 +1649,9 @@ const ProblemSolvingCaseStudy = ({ user }) => {
                         : 'bg-slate-100 text-slate-900'
                     }`}
                   >
-                    {msg.content}
+                    <div className="whitespace-pre-line text-sm leading-relaxed">
+                      {msg.content}
+                    </div>
                   </div>
                 )}
               </div>
@@ -1323,7 +1668,17 @@ const ProblemSolvingCaseStudy = ({ user }) => {
             )}
           </div>
 
-          {/* Input Area */}
+          {/* Feedback Processing Banner */}
+      {isLoading && userInput === "" && (
+        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-3 mb-4">
+          <div className="flex items-center gap-2 text-blue-700">
+            <div className="animate-spin rounded-full h-4 w-4 border-2 border-blue-500 border-t-transparent"></div>
+            <span className="text-sm font-medium">正在生成详细评估反馈，请稍候...</span>
+          </div>
+        </div>
+      )}
+
+      {/* Input Area */}
           <div className="flex gap-2">
             <input
               type="text"
@@ -1345,8 +1700,16 @@ const ProblemSolvingCaseStudy = ({ user }) => {
         </div>
       )}
 
-      {/* Feedback Section */}
-      {showFeedback && (
+      {/* Structured Feedback Modal */}
+      {showStructuredFeedback && feedback?.type === 'structured' && (
+        <StructuredFeedbackDisplay
+          feedbackData={feedback.data}
+          onClose={() => setShowStructuredFeedback(false)}
+        />
+      )}
+
+      {/* Regular Feedback Section */}
+      {showFeedback && feedback?.type === 'text' && (
         <div className="card">
           <div className="flex items-center justify-between mb-4">
             <h4 className="font-medium text-slate-900">Case Study Analysis Feedback</h4>
@@ -1359,7 +1722,7 @@ const ProblemSolvingCaseStudy = ({ user }) => {
           </div>
           <div className="bg-slate-50 rounded-lg p-4">
             <div className="prose prose-sm max-w-none">
-              {feedback.split('\n').map((line, index) => (
+              {feedback.data.split('\n').map((line, index) => (
                 <p key={index} className="mb-2">{line}</p>
               ))}
             </div>
