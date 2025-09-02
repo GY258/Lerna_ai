@@ -136,3 +136,26 @@ def get_user_report(user_id: str):
     if response.data:
         return {"user_id": user_id, "summary": response.data[0]["summary"]}
     return None
+
+def get_problem_solving_cases(dimension: str = None, role: str = None, limit: int = 1):
+    """
+    Fetch problem solving cases from the database
+    """
+    query = supabase.table("problem_solving_cases").select("*")
+    
+    if dimension:
+        query = query.eq("dimension", dimension)
+    if role:
+        query = query.eq("role", role)
+    
+    query = query.limit(limit)
+    
+    result = query.execute()
+    return result.data or []
+
+def get_problem_solving_case_by_id(case_id: int):
+    """
+    Fetch a specific problem solving case by ID
+    """
+    result = supabase.table("problem_solving_cases").select("*").eq("id", case_id).single().execute()
+    return result.data

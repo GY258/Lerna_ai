@@ -852,6 +852,8 @@ const ProblemSolvingCaseStudy = ({ user }) => {
   const [showFeedback, setShowFeedback] = useState(false);
   const [cases, setCases] = useState([]);
   const [casesLoading, setCasesLoading] = useState(true);
+  const [problemSolvingCases, setProblemSolvingCases] = useState([]);
+  const [casesError, setCasesError] = useState("");
   const { t } = useTranslation();
 
   // Fetch skill dimensions and convert to case study scenarios
@@ -964,12 +966,51 @@ const ProblemSolvingCaseStudy = ({ user }) => {
     }
   ];
 
+  // Function to fetch problem solving cases from the backend
+  const fetchProblemSolvingCases = async () => {
+    try {
+      setIsLoading(true);
+      setCasesError("");
+      
+      // Get user's role dimension for filtering
+      const role = user.role === 'store_manager' ? '店长' : user.role;
+      
+      const response = await fetch(`http://localhost:8000/problem-solving/cases?role=${encodeURIComponent(role)}&limit=10`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        setProblemSolvingCases(result.data);
+        console.log('Fetched problem solving cases:', result.data);
+        // Automatically start with the fetched data
+        setUserInput("I'm ready to begin the case study analysis with real problem solving cases");
+      } else {
+        setCasesError(result.error || 'Failed to fetch problem solving cases');
+        console.error('Error fetching cases:', result.error);
+        // Fallback to default behavior
+        setUserInput("I'm ready to begin the case study analysis");
+      }
+    } catch (error) {
+      setCasesError('Network error while fetching problem solving cases');
+      console.error('Network error:', error);
+      // Fallback to default behavior
+      setUserInput("I'm ready to begin the case study analysis");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const startNewCase = () => {
     setConversation([]);
     setUserInput("");
     setSelectedCase("");
     setFeedback("");
     setShowFeedback(false);
+    setProblemSolvingCases([]);
+    setCasesError("");
   };
 
   const requestFeedback = async () => {
@@ -1135,11 +1176,20 @@ const ProblemSolvingCaseStudy = ({ user }) => {
               <p className="text-sm">This case study will present you with a real-world scenario related to your selected skill area.</p>
               <div className="mt-4">
                 <button
-                  onClick={() => setUserInput("I'm ready to begin the case study analysis")}
+                  onClick={fetchProblemSolvingCases}
+                  disabled={isLoading}
                   className="btn-primary"
                 >
-                  Start Case Study
+                  {isLoading ? 'Loading Cases...' : 'Start Case Study'}
                 </button>
+                {casesError && (
+                  <p className="text-red-500 text-sm mt-2">{casesError}</p>
+                )}
+                {problemSolvingCases.length > 0 && (
+                  <p className="text-green-600 text-sm mt-2">
+                    Loaded {problemSolvingCases.length} problem solving cases from database
+                  </p>
+                )}
               </div>
             </div>
           )}

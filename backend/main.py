@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-from backend.routers import quiz, auth, progress, employee, manager, ai_training
+from backend.routers import quiz, auth, progress, employee, manager, ai_training, problem_solving
 from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
@@ -17,6 +17,7 @@ app.include_router(quiz.router)
 app.include_router(employee.router)
 app.include_router(manager.router)
 app.include_router(ai_training.router)
+app.include_router(problem_solving.router)
 # app.include_router(auth.router)
 # app.include_router(progress.router)
 
