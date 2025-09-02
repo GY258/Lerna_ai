@@ -139,7 +139,7 @@ def get_user_report(user_id: str):
 
 def get_problem_solving_cases(dimension: str = None, role: str = None, limit: int = 1):
     """
-    Fetch problem solving cases from the database
+    Fetch random problem solving cases from the database
     """
     query = supabase.table("problem_solving_cases").select("*")
     
@@ -148,10 +148,14 @@ def get_problem_solving_cases(dimension: str = None, role: str = None, limit: in
     if role:
         query = query.eq("role", role)
     
-    query = query.limit(limit)
-    
+    # Fetch all matching cases first
     result = query.execute()
-    return result.data or []
+    all_cases = result.data or []
+    
+    # Return random sample
+    if len(all_cases) <= limit:
+        return all_cases
+    return random.sample(all_cases, limit)
 
 def get_problem_solving_case_by_id(case_id: int):
     """

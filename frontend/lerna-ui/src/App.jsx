@@ -967,7 +967,7 @@ const ProblemSolvingCaseStudy = ({ user }) => {
   ];
 
   // Function to fetch problem solving cases from the backend
-  const fetchProblemSolvingCases = async () => {
+  const fetchProblemSolvingCases = async (dimension = null) => {
     try {
       setIsLoading(true);
       setCasesError("");
@@ -975,18 +975,47 @@ const ProblemSolvingCaseStudy = ({ user }) => {
       // Get user's role dimension for filtering
       const role = user.role === 'store_manager' ? '店长' : user.role;
       
-      const response = await fetch(`http://localhost:8000/problem-solving/cases?role=${encodeURIComponent(role)}&limit=10`, {
+      // Build query parameters - get only 1 case
+      let url = `http://localhost:8000/problem-solving/cases?role=${encodeURIComponent(role)}&limit=1`;
+      if (dimension) {
+        url += `&dimension=${encodeURIComponent(dimension)}`;
+      }
+      
+      console.log('Fetching cases from URL:', url);
+      const response = await fetch(url, {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' }
       });
       
       const result = await response.json();
+      console.log('API Response:', result);
       
-      if (result.success) {
+      if (result.success && result.data.length > 0) {
         setProblemSolvingCases(result.data);
-        console.log('Fetched problem solving cases:', result.data);
-        // Automatically start with the fetched data
-        setUserInput("I'm ready to begin the case study analysis with real problem solving cases");
+        console.log('Fetched problem solving case for dimension:', dimension, result.data[0]);
+        
+        // Automatically display the case to the user
+        const caseData = result.data[0];
+        
+        // Create a structured case presentation
+        const casePresentation = {
+          role: "assistant",
+          content: "",
+          isCase: true,
+          caseData: {
+            title: caseData.scenario_title || 'Case Study',
+            dimension: dimension,
+            role: caseData.role || user.role,
+            background: caseData.background || '',
+            problem: caseData.problem || '',
+            expectedActions: caseData.expected_actions || '',
+            evaluationCriteria: caseData.evaluation_criteria || ''
+          }
+        };
+        
+        // Add the case directly to conversation
+        setConversation([casePresentation]);
+        setUserInput("");
       } else {
         setCasesError(result.error || 'Failed to fetch problem solving cases');
         console.error('Error fetching cases:', result.error);
@@ -1104,7 +1133,11 @@ const ProblemSolvingCaseStudy = ({ user }) => {
               {cases.map(caseStudy => (
                 <button
                   key={caseStudy.id}
-                  onClick={() => setSelectedCase(caseStudy.id)}
+                  onClick={async () => {
+                    setSelectedCase(caseStudy.id);
+                    // Pass the dimension name to fetch and automatically display the case
+                    await fetchProblemSolvingCases(caseStudy.name);
+                  }}
                   className="p-4 rounded-lg border border-slate-200 hover:border-slate-300 transition-colors text-left"
                 >
                   <div className="flex items-center gap-3">
@@ -1173,24 +1206,15 @@ const ProblemSolvingCaseStudy = ({ user }) => {
           {conversation.length === 0 && (
             <div className="text-center py-8 text-slate-600">
               <p className="mb-2">Welcome to the Problem-solving Case Study!</p>
-              <p className="text-sm">This case study will present you with a real-world scenario related to your selected skill area.</p>
-              <div className="mt-4">
-                <button
-                  onClick={fetchProblemSolvingCases}
-                  disabled={isLoading}
-                  className="btn-primary"
-                >
-                  {isLoading ? 'Loading Cases...' : 'Start Case Study'}
-                </button>
-                {casesError && (
-                  <p className="text-red-500 text-sm mt-2">{casesError}</p>
-                )}
-                {problemSolvingCases.length > 0 && (
-                  <p className="text-green-600 text-sm mt-2">
-                    Loaded {problemSolvingCases.length} problem solving cases from database
-                  </p>
-                )}
-              </div>
+              <p className="text-sm">Your case study has been loaded automatically. Please read the scenario above and provide your analysis.</p>
+              {casesError && (
+                <p className="text-red-500 text-sm mt-2">{casesError}</p>
+              )}
+              {problemSolvingCases.length > 0 && (
+                <p className="text-green-600 text-sm mt-2">
+                  Loaded problem solving case from database
+                </p>
+              )}
             </div>
           )}
 
@@ -1201,15 +1225,75 @@ const ProblemSolvingCaseStudy = ({ user }) => {
                 key={index}
                 className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
               >
-                <div
-                  className={`max-w-[80%] rounded-lg px-4 py-2 ${
-                    msg.role === 'user'
-                      ? 'bg-sky-500 text-white'
-                      : 'bg-slate-100 text-slate-900'
-                  }`}
-                >
-                  {msg.content}
-                </div>
+                {msg.isCase ? (
+                  /* Special formatting for case studies */
+                  <div className="w-full max-w-4xl bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-6 shadow-sm">
+                    {/* Case Header */}
+                    <div className="border-b border-blue-200 pb-4 mb-4">
+                      <div className="flex items-center justify-between">
+                        <h3 className="text-xl font-bold text-slate-800">{msg.caseData.title}</h3>
+                        <div className="flex gap-2">
+                          <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium">
+                            {msg.caseData.dimension}
+                          </span>
+                          <span className="px-3 py-1 bg-slate-100 text-slate-700 rounded-full text-sm">
+                            {msg.caseData.role}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* Case Content */}
+                    <div className="space-y-4">
+                      {/* Background Section */}
+                      <div className="bg-white rounded-lg p-4 border border-blue-100">
+                        <h4 className="font-semibold text-slate-800 mb-2 flex items-center">
+                          <span className="w-2 h-2 bg-blue-500 rounded-full mr-2"></span>
+                          情况背景 (Background)
+                        </h4>
+                        <p className="text-slate-700 leading-relaxed">{msg.caseData.background}</p>
+                      </div>
+                      
+                      {/* Problem Section */}
+                      <div className="bg-red-50 rounded-lg p-4 border border-red-200">
+                        <h4 className="font-semibold text-red-800 mb-2 flex items-center">
+                          <span className="w-2 h-2 bg-red-500 rounded-full mr-2"></span>
+                          问题描述 (Problem)
+                        </h4>
+                        <p className="text-red-700 leading-relaxed">{msg.caseData.problem}</p>
+                      </div>
+                      
+                      {/* Task Section */}
+                      <div className="bg-green-50 rounded-lg p-4 border border-green-200">
+                        <h4 className="font-semibold text-green-800 mb-2 flex items-center">
+                          <span className="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
+                          您的任务 (Your Task)
+                        </h4>
+                        <p className="text-green-700 leading-relaxed">
+                          请分析这个情况并提供您建议的行动方案和解决方法。请考虑：
+                        </p>
+                        <ul className="mt-2 space-y-1 text-green-700">
+                          <li className="flex items-center"><span className="text-green-500 mr-2">•</span>立即需要采取的行动</li>
+                          <li className="flex items-center"><span className="text-green-500 mr-2">•</span>预防类似问题的措施</li>
+                          <li className="flex items-center"><span className="text-green-500 mr-2">•</span>如何评估解决方案的效果</li>
+                        </ul>
+                      </div>
+                      
+                      {/* Expected Actions and Evaluation Criteria - Hidden for better learning experience */}
+                    </div>
+                  </div>
+                ) : (
+                  /* Regular message formatting */
+                  <div
+                    className={`max-w-[80%] rounded-lg px-4 py-2 ${
+                      msg.role === 'user'
+                        ? 'bg-sky-500 text-white'
+                        : 'bg-slate-100 text-slate-900'
+                    }`}
+                  >
+                    {msg.content}
+                  </div>
+                )}
               </div>
             ))}
             {isLoading && (
